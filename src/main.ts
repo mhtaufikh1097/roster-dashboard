@@ -80,8 +80,8 @@ app.innerHTML = `
     <main class="main-panel">
       <header class="topbar">
         <div>
-          <p class="eyebrow">Monitoring Personel</p>
-          <h1>Roster Dashboard</h1>
+        <p class="eyebrow">Monitoring Personel HPIO</p>
+          <h1>Roster Dashboard IT Officer</h1>
         </div>
         <button id="print-button" class="secondary-button" type="button">Print</button>
       </header>
