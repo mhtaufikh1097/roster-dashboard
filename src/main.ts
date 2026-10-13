@@ -62,6 +62,7 @@ app.innerHTML = `
         <p class="card-kicker">Upload</p>
         <p class="card-copy">Pilih file Excel untuk memperbarui roster aktif.</p>
         <button id="upload-trigger" class="primary-button" type="button">Upload Excel</button>
+        <button id="reset-roster-button" class="reset-button" type="button" disabled>Reset data</button>
         <input id="file-input" type="file" accept=".xlsx,.xls" hidden />
       </div>
 
@@ -145,6 +146,7 @@ const refs = {
   activeFileValue: document.querySelector<HTMLElement>('#active-file-value') as HTMLElement | null,
   activePeriodValue: document.querySelector<HTMLElement>('#active-period-value') as HTMLElement | null,
   uploadTrigger: document.querySelector<HTMLButtonElement>('#upload-trigger') as HTMLButtonElement | null,
+  resetRosterButton: document.querySelector<HTMLButtonElement>('#reset-roster-button') as HTMLButtonElement | null,
   fileInput: document.querySelector<HTMLInputElement>('#file-input') as HTMLInputElement | null,
   printButton: document.querySelector<HTMLButtonElement>('#print-button') as HTMLButtonElement | null,
   modal: document.querySelector<HTMLDivElement>('#upload-modal') as HTMLDivElement | null,
@@ -170,6 +172,7 @@ const ui = {
   activeFileValue: assertExists(refs.activeFileValue, 'activeFileValue'),
   activePeriodValue: assertExists(refs.activePeriodValue, 'activePeriodValue'),
   uploadTrigger: assertExists(refs.uploadTrigger, 'uploadTrigger'),
+  resetRosterButton: assertExists(refs.resetRosterButton, 'resetRosterButton'),
   fileInput: assertExists(refs.fileInput, 'fileInput'),
   printButton: assertExists(refs.printButton, 'printButton'),
   modal: assertExists(refs.modal, 'modal'),
@@ -185,6 +188,13 @@ const state: AppState = {
   activeTab: 'daily',
   lastUpdated: null,
   lastFileName: '',
+};
+
+const ROSTER_STORAGE_KEY = 'roster-dashboard.active-roster.v1';
+
+type PersistedRoster = {
+  roster: RosterData;
+  lastUpdated: string;
 };
 
 const formatDateKey = (date: Date): string => {
@@ -565,6 +575,8 @@ const renderMetadata = (): void => {
 };
 
 const renderApp = (): void => {
+  ui.resetRosterButton.disabled = !state.activeRoster;
+
   if (!state.activeRoster) {
     ui.summaryGrid.innerHTML = '';
     ui.dailyPanel.innerHTML = '<div class="empty-state">Belum ada data roster. Silakan upload file Excel manual.</div>';
@@ -650,7 +662,63 @@ const applyActiveRoster = (roster: RosterData): void => {
   state.lastUpdated = new Date();
   state.lastFileName = roster.filename;
   state.pendingRoster = null;
-  setAlert('Roster berhasil diperbarui.', 'success');
+
+  try {
+    const persisted: PersistedRoster = {
+      roster,
+      lastUpdated: state.lastUpdated.toISOString(),
+    };
+    localStorage.setItem(ROSTER_STORAGE_KEY, JSON.stringify(persisted));
+    setAlert('Roster berhasil diperbarui dan akan tetap tersedia setelah halaman di-refresh.', 'success');
+  } catch {
+    setAlert('Roster berhasil ditampilkan, tetapi browser tidak dapat menyimpannya untuk sesi berikutnya.', 'warning');
+  }
+
+  renderApp();
+};
+
+const restoreSavedRoster = (): void => {
+  const savedValue = localStorage.getItem(ROSTER_STORAGE_KEY);
+  if (!savedValue) return;
+
+  try {
+    const saved = JSON.parse(savedValue) as PersistedRoster;
+    const roster = saved.roster;
+    const updatedAt = new Date(saved.lastUpdated);
+
+    if (
+      !roster ||
+      typeof roster.filename !== 'string' ||
+      !Array.isArray(roster.dates) ||
+      !Array.isArray(roster.personnel) ||
+      roster.dates.length === 0 ||
+      roster.personnel.length === 0 ||
+      Number.isNaN(updatedAt.getTime())
+    ) {
+      throw new Error('Data roster tersimpan tidak valid.');
+    }
+
+    state.activeRoster = roster;
+    state.selectedDate = roster.dates[0].key;
+    state.lastUpdated = updatedAt;
+    state.lastFileName = roster.filename;
+  } catch {
+    localStorage.removeItem(ROSTER_STORAGE_KEY);
+    setAlert('Data roster tersimpan tidak dapat dibaca. Silakan upload file Excel kembali.', 'warning');
+  }
+};
+
+const resetRoster = (): void => {
+  if (!state.activeRoster) return;
+  if (!window.confirm('Hapus roster aktif dan data tersimpan dari browser ini?')) return;
+
+  localStorage.removeItem(ROSTER_STORAGE_KEY);
+  state.activeRoster = null;
+  state.pendingRoster = null;
+  state.selectedDate = '';
+  state.lastUpdated = null;
+  state.lastFileName = '';
+  setAlert('Data roster sudah direset.', 'success');
   renderApp();
 };
 
@@ -677,6 +745,7 @@ const handleFileUpload = async (file: File): Promise<void> => {
 };
 
 ui.uploadTrigger.addEventListener('click', () => ui.fileInput.click());
+ui.resetRosterButton.addEventListener('click', resetRoster);
 ui.fileInput.addEventListener('change', async (event) => {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
@@ -713,5 +782,6 @@ document.addEventListener('click', (event) => {
   }
 });
 window.addEventListener('load', () => {
+  restoreSavedRoster();
   renderApp();
 });
