@@ -154,7 +154,7 @@ app.innerHTML = `
         <div>
 
      <p class="eyebrow">Monitoring Personel HPIO</p>
-<h1>Roster Dashboard IT Officer</h1>
+<h1>Dashboard Roster IT HPIO</h1>
 
         </div>
         <div class="topbar-actions">
@@ -165,6 +165,33 @@ app.innerHTML = `
 
       <div id="alert-box" class="alert-box hidden" aria-live="polite"></div>
       <section id="summary-grid" class="summary-grid"></section>
+
+      <section id="work-hours-panel" class="work-hours-panel" aria-label="Informasi jam kerja">
+        <div class="panel-header compact-header">
+          <div>
+            <p class="panel-kicker">Informasi</p>
+            <h2>INFORMASI JAM KERJA</h2>
+          </div>
+        </div>
+        <div class="work-hours-grid">
+          <div class="work-hours-item pagi">
+            <span class="work-hours-label">PAGI</span>
+            <strong>06:00–15:00</strong>
+          </div>
+          <div class="work-hours-item siang">
+            <span class="work-hours-label">SIANG</span>
+            <strong>13:00–22:00</strong>
+          </div>
+          <div class="work-hours-item office">
+            <span class="work-hours-label">OFFICE HOUR</span>
+            <strong>08:00–17:00</strong>
+          </div>
+          <div class="work-hours-item empty">
+            <span class="work-hours-label">LIBUR</span>
+            <strong>OFF Duty</strong>
+          </div>
+        </div>
+      </section>
 
       <section class="toolbar">
         <label class="field-wrap">
