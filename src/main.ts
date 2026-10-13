@@ -31,6 +31,7 @@ type AppState = {
   activeRoster: RosterData | null;
   pendingRoster: RosterData | null;
   selectedDate: string;
+  defaultDateKey: string;
   searchTerm: string;
   activeTab: ActiveTab;
   lastUpdated: Date | null;
@@ -278,6 +279,7 @@ const state: AppState = {
   activeRoster: null,
   pendingRoster: null,
   selectedDate: '',
+  defaultDateKey: '',
   searchTerm: '',
   activeTab: 'daily',
   lastUpdated: null,
@@ -285,26 +287,82 @@ const state: AppState = {
 };
 
 const ROSTER_STORAGE_KEY = 'roster-dashboard.active-roster.v1';
+const ASIA_JAKARTA_TIMEZONE = 'Asia/Jakarta';
 
 type PersistedRoster = {
   roster: RosterData;
   lastUpdated: string;
 };
 
-const formatDateKey = (date: Date): string => {
-  const normalized = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return normalized.toISOString().slice(0, 10);
+const getDatePartsInTimeZone = (date: Date, timeZone: string): { day: number; month: number; year: number } => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+
+  const map = new Map<string, string>();
+  for (const part of parts) {
+    if (part.type !== 'literal') {
+      map.set(part.type, part.value);
+    }
+  }
+
+  return {
+    year: Number(map.get('year') ?? 0),
+    month: Number(map.get('month') ?? 0),
+    day: Number(map.get('day') ?? 0),
+  };
+};
+
+const formatDateKey = (date: Date, timeZone = ASIA_JAKARTA_TIMEZONE): string => {
+  const { year, month, day } = getDatePartsInTimeZone(date, timeZone);
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+};
+
+const createDateFromValue = (value: unknown): Date | null => {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const rawValue = String(value ?? '').trim();
+  if (!rawValue) {
+    return null;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(rawValue)) {
+    return new Date(`${rawValue}T00:00:00+07:00`);
+  }
+
+  const date = new Date(rawValue);
+  return Number.isNaN(date.getTime()) ? null : date;
 };
 
 const formatDateLabel = (date: Date): string =>
   new Intl.DateTimeFormat('en-GB', {
+    timeZone: ASIA_JAKARTA_TIMEZONE,
     day: '2-digit',
     month: 'short',
     year: 'numeric',
   }).format(date);
 
 const formatDayName = (date: Date): string =>
-  new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(date);
+  new Intl.DateTimeFormat('en-US', {
+    timeZone: ASIA_JAKARTA_TIMEZONE,
+    weekday: 'long',
+  }).format(date);
+
+const getCurrentDateKeyInTimeZone = (timeZone = ASIA_JAKARTA_TIMEZONE): string => formatDateKey(new Date(), timeZone);
+
+const getDefaultRosterDateKey = (roster: RosterData): string => {
+  const todayKey = getCurrentDateKeyInTimeZone();
+  if (roster.dates.some((date) => date.key === todayKey)) {
+    return todayKey;
+  }
+
+  return roster.dates[0]?.key ?? '';
+};
 
 const normalizeStatusText = (status: Status): string => (status === '' ? 'Libur' : status);
 
@@ -413,8 +471,8 @@ const parseRoster = (buffer: ArrayBuffer, filename: string): RosterData => {
     const value = dateRow[index];
     if (value == null || value === '') continue;
 
-    const date = value instanceof Date ? new Date(value) : new Date(String(value));
-    if (Number.isNaN(date.getTime())) continue;
+    const date = createDateFromValue(value);
+    if (!date) continue;
 
     dates.push({
       key: formatDateKey(date),
@@ -472,6 +530,11 @@ const renderSummaryCards = (): void => {
     return;
   }
 
+  if (!state.activeRoster.dates.some((date) => date.key === state.selectedDate)) {
+    ui.summaryGrid.innerHTML = '';
+    return;
+  }
+
   const summary = getSummaryCounts(state.selectedDate, state.activeRoster);
   const cards = [
     { title: 'PAGI', value: summary.pagi, tone: 'pagi' },
@@ -498,8 +561,12 @@ const renderDateOptions = (): void => {
     return;
   }
 
+  if (!state.defaultDateKey || !state.activeRoster.dates.some((date) => date.key === state.defaultDateKey)) {
+    state.defaultDateKey = getDefaultRosterDateKey(state.activeRoster);
+  }
+
   if (!state.selectedDate || !state.activeRoster.dates.some((date) => date.key === state.selectedDate)) {
-    state.selectedDate = state.activeRoster.dates[0]?.key ?? '';
+    state.selectedDate = state.defaultDateKey || state.activeRoster.dates[0]?.key || '';
   }
 
   ui.dateSelect.innerHTML = state.activeRoster.dates
@@ -514,6 +581,12 @@ const renderDailyPanel = (): void => {
     return;
   }
 
+  const selectedDate = state.activeRoster.dates.find((date) => date.key === state.selectedDate);
+  if (!selectedDate) {
+    ui.dailyPanel.innerHTML = '<div class="empty-state">Data roster untuk tanggal ini belum tersedia.</div>';
+    return;
+  }
+
   const visiblePersonnel = state.activeRoster.personnel.filter((person) => {
     const query = state.searchTerm.trim().toLowerCase();
     if (!query) return true;
@@ -525,8 +598,7 @@ const renderDailyPanel = (): void => {
     return;
   }
 
-  const selectedDate = state.activeRoster.dates.find((date) => date.key === state.selectedDate);
-  const dateLabel = selectedDate?.label ?? state.selectedDate;
+  const dateLabel = selectedDate.label;
 
   ui.dailyPanel.innerHTML = `
     <div class="panel-header">
@@ -735,6 +807,20 @@ const handleLogout = (): void => {
   updateAuthView();
 };
 
+const syncDateWithCurrentDay = (): void => {
+  if (!state.activeRoster || !state.defaultDateKey) {
+    return;
+  }
+
+  const todayKey = getCurrentDateKeyInTimeZone();
+  const rosterDates = state.activeRoster.dates.map((date) => date.key);
+
+  if (state.selectedDate === state.defaultDateKey && rosterDates.includes(todayKey) && state.defaultDateKey !== todayKey) {
+    state.defaultDateKey = todayKey;
+    state.selectedDate = todayKey;
+  }
+};
+
 const renderApp = (): void => {
   ui.resetRosterButton.disabled = !state.activeRoster;
 
@@ -746,6 +832,14 @@ const renderApp = (): void => {
     ui.activeFileValue.textContent = '--';
     ui.activePeriodValue.textContent = '--';
     return;
+  }
+
+  if (!state.defaultDateKey || !state.activeRoster.dates.some((date) => date.key === state.defaultDateKey)) {
+    state.defaultDateKey = getDefaultRosterDateKey(state.activeRoster);
+  }
+
+  if (!state.selectedDate || !state.activeRoster.dates.some((date) => date.key === state.selectedDate)) {
+    state.selectedDate = state.defaultDateKey;
   }
 
   renderDateOptions();
@@ -819,7 +913,8 @@ const closeUploadModal = (): void => {
 
 const applyActiveRoster = (roster: RosterData): void => {
   state.activeRoster = roster;
-  state.selectedDate = roster.dates[0]?.key ?? '';
+  state.defaultDateKey = getDefaultRosterDateKey(roster);
+  state.selectedDate = state.defaultDateKey;
   state.lastUpdated = new Date();
   state.lastFileName = roster.filename;
   state.pendingRoster = null;
@@ -860,7 +955,8 @@ const restoreSavedRoster = (): void => {
     }
 
     state.activeRoster = roster;
-    state.selectedDate = roster.dates[0].key;
+    state.defaultDateKey = getDefaultRosterDateKey(roster);
+    state.selectedDate = state.defaultDateKey;
     state.lastUpdated = updatedAt;
     state.lastFileName = roster.filename;
   } catch {
@@ -877,6 +973,7 @@ const resetRoster = (): void => {
   state.activeRoster = null;
   state.pendingRoster = null;
   state.selectedDate = '';
+  state.defaultDateKey = '';
   state.lastUpdated = null;
   state.lastFileName = '';
   setAlert('Data roster sudah direset.', 'success');
@@ -965,8 +1062,28 @@ document.addEventListener('click', (event) => {
 window.addEventListener('hashchange', () => {
   updateAuthView();
 });
+let dailyDateWatcher: number | undefined;
+
+const startDailyDateWatcher = (): void => {
+  if (dailyDateWatcher) {
+    window.clearInterval(dailyDateWatcher);
+  }
+
+  dailyDateWatcher = window.setInterval(() => {
+    syncDateWithCurrentDay();
+    renderApp();
+  }, 60000);
+};
+
 window.addEventListener('load', () => {
   restoreSavedRoster();
   updateAuthView();
   renderApp();
+  startDailyDateWatcher();
+});
+
+window.addEventListener('beforeunload', () => {
+  if (dailyDateWatcher) {
+    window.clearInterval(dailyDateWatcher);
+  }
 });

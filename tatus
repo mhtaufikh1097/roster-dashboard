@@ -1,0 +1,24 @@
+[1mdiff --cc docs/assets/index-CoLQyWKu.js[m
+[1mindex 34c6ddd,0339a3c..0000000[m
+[1m--- a/docs/assets/index-CoLQyWKu.js[m
+[1m+++ b/docs/assets/index-CoLQyWKu.js[m
+[36m@@@ -73,10 -126,13 +126,18 @@@[m
+      <main class="main-panel">[m
+        <header class="topbar">[m
+          <div>[m
+[32m++<<<<<<< HEAD:docs/assets/index-BwB3zdPr.js[m
+[32m +            <p class="eyebrow">Monitoring Personel HPIO</p>[m
+[32m +          <h1>Roster Dashboard IT Officer</h1>[m
+[32m++=======[m
+[32m+           <p class="eyebrow">Monitoring Personel HPIO</p>[m
+[32m+           <h1>Roster Dashboard IT Officer 501</h1>[m
+[32m+         </div>[m
+[32m+         <div class="topbar-actions">[m
+[32m+           <button id="print-button" class="secondary-button" type="button">Print</button>[m
+[32m+           <button id="logout-button" class="logout-button" type="button">Logout</button>[m
+[32m++>>>>>>> e1cf700 (Add minimalist login page):docs/assets/index-CoLQyWKu.js[m
+          </div>[m
+[31m-         <button id="print-button" class="secondary-button" type="button">Print</button>[m
+        </header>[m
+  [m
+        <div id="alert-box" class="alert-box hidden" aria-live="polite"></div>[m
