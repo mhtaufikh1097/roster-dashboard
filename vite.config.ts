@@ -12,6 +12,6 @@ export default defineConfig({
   },
   base: '/roster-dashboard/',
   build: {
-    outDir: 'docs',
+    outDir: 'dist',
   },
 });
