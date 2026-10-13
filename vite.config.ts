@@ -1,4 +1,3 @@
-
 import { defineConfig } from 'vite';
 
 export default defineConfig({
@@ -10,5 +9,5 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 4173,
   },
-  base: './',
+  base: '/roster-dashboard/',
 });
