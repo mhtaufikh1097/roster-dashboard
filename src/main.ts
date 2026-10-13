@@ -42,8 +42,79 @@ if (!app) {
   throw new Error('App root element not found');
 }
 
+const AUTH_STORAGE_KEY = 'roster-dashboard.auth.v1';
+const DEMO_USERNAME = 'admin';
+const DEMO_PASSWORD = 'Admin123!';
+
+const getCurrentRoute = (): 'login' | 'dashboard' => {
+  const hashValue = window.location.hash.replace(/^#\/?/, '').trim().toLowerCase();
+  return hashValue === 'dashboard' ? 'dashboard' : 'login';
+};
+
+const isAuthenticated = (): boolean => sessionStorage.getItem(AUTH_STORAGE_KEY) === 'true';
+
+const syncRoute = (route: 'login' | 'dashboard'): void => {
+  const targetHash = route === 'dashboard' ? '#dashboard' : '#login';
+  if (window.location.hash !== targetHash) {
+    window.location.hash = targetHash;
+  }
+};
+
 app.innerHTML = `
-  <div class="dashboard-shell">
+  <div id="login-screen" class="login-screen">
+    <div class="login-shell">
+      <section class="login-panel">
+        <div class="login-brand">
+          <div class="brand-mark">R</div>
+          <div>
+            <p class="brand-title">Roster</p>
+            <small>IT Technician</small>
+          </div>
+        </div>
+
+        <div class="login-copy">
+          <p class="eyebrow">Access portal</p>
+          <h1>Masuk ke dashboard</h1>
+          <p>Kelola roster harian dan bulanan dengan kontrol akses yang sederhana.</p>
+        </div>
+
+        <form id="login-form" class="login-form" novalidate>
+          <label class="login-field" for="username-input">
+            <span>Username</span>
+            <input id="username-input" name="username" type="text" autocomplete="username" placeholder="admin" required />
+          </label>
+
+          <label class="login-field" for="password-input">
+            <span>Password</span>
+            <div class="password-wrap">
+              <input id="password-input" name="password" type="password" autocomplete="current-password" placeholder="Masukkan password" required />
+              <button id="toggle-password" class="password-toggle" type="button" aria-label="Tampilkan password">Show</button>
+            </div>
+          </label>
+
+          <button id="login-submit" class="login-button" type="submit">
+            <span class="login-button-label">Login</span>
+          </button>
+
+          <p id="login-error" class="login-error" role="alert" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <aside class="login-aside">
+        <div class="login-aside-card">
+          <p class="eyebrow">Demo access</p>
+          <h2>Credential sementara</h2>
+          <ul class="credential-list">
+            <li><span>Username</span><strong>admin</strong></li>
+            <li><span>Password</span><strong>Admin123!</strong></li>
+          </ul>
+          <small>Ini hanya prototipe lokal dan akan diganti saat autentikasi backend atau database sudah tersedia.</small>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div id="dashboard-shell" class="dashboard-shell hidden">
     <aside class="sidebar">
       <div class="brand-wrap">
         <div class="brand-mark">R</div>
@@ -85,7 +156,10 @@ app.innerHTML = `
 <h1>Roster Dashboard IT Officer</h1>
 
         </div>
-        <button id="print-button" class="secondary-button" type="button">Print</button>
+        <div class="topbar-actions">
+          <button id="print-button" class="secondary-button" type="button">Print</button>
+          <button id="logout-button" class="logout-button" type="button">Logout</button>
+        </div>
       </header>
 
       <div id="alert-box" class="alert-box hidden" aria-live="polite"></div>
@@ -138,6 +212,14 @@ app.innerHTML = `
 `;
 
 const refs = {
+  loginScreen: document.querySelector<HTMLDivElement>('#login-screen') as HTMLDivElement | null,
+  loginForm: document.querySelector<HTMLFormElement>('#login-form') as HTMLFormElement | null,
+  usernameInput: document.querySelector<HTMLInputElement>('#username-input') as HTMLInputElement | null,
+  passwordInput: document.querySelector<HTMLInputElement>('#password-input') as HTMLInputElement | null,
+  loginSubmit: document.querySelector<HTMLButtonElement>('#login-submit') as HTMLButtonElement | null,
+  togglePassword: document.querySelector<HTMLButtonElement>('#toggle-password') as HTMLButtonElement | null,
+  loginError: document.querySelector<HTMLParagraphElement>('#login-error') as HTMLParagraphElement | null,
+  dashboardShell: document.querySelector<HTMLDivElement>('#dashboard-shell') as HTMLDivElement | null,
   summaryGrid: document.querySelector<HTMLDivElement>('#summary-grid') as HTMLDivElement | null,
   dateSelect: document.querySelector<HTMLSelectElement>('#date-select') as HTMLSelectElement | null,
   searchInput: document.querySelector<HTMLInputElement>('#search-input') as HTMLInputElement | null,
@@ -151,6 +233,7 @@ const refs = {
   resetRosterButton: document.querySelector<HTMLButtonElement>('#reset-roster-button') as HTMLButtonElement | null,
   fileInput: document.querySelector<HTMLInputElement>('#file-input') as HTMLInputElement | null,
   printButton: document.querySelector<HTMLButtonElement>('#print-button') as HTMLButtonElement | null,
+  logoutButton: document.querySelector<HTMLButtonElement>('#logout-button') as HTMLButtonElement | null,
   modal: document.querySelector<HTMLDivElement>('#upload-modal') as HTMLDivElement | null,
   modalContent: document.querySelector<HTMLDivElement>('#modal-content') as HTMLDivElement | null,
   applyRosterButton: document.querySelector<HTMLButtonElement>('#apply-roster-button') as HTMLButtonElement | null,
@@ -164,6 +247,14 @@ const assertExists = <T>(value: T | null | undefined, name: string): T => {
 };
 
 const ui = {
+  loginScreen: assertExists(refs.loginScreen, 'loginScreen'),
+  loginForm: assertExists(refs.loginForm, 'loginForm'),
+  usernameInput: assertExists(refs.usernameInput, 'usernameInput'),
+  passwordInput: assertExists(refs.passwordInput, 'passwordInput'),
+  loginSubmit: assertExists(refs.loginSubmit, 'loginSubmit'),
+  togglePassword: assertExists(refs.togglePassword, 'togglePassword'),
+  loginError: assertExists(refs.loginError, 'loginError'),
+  dashboardShell: assertExists(refs.dashboardShell, 'dashboardShell'),
   summaryGrid: assertExists(refs.summaryGrid, 'summaryGrid'),
   dateSelect: assertExists(refs.dateSelect, 'dateSelect'),
   searchInput: assertExists(refs.searchInput, 'searchInput'),
@@ -177,6 +268,7 @@ const ui = {
   resetRosterButton: assertExists(refs.resetRosterButton, 'resetRosterButton'),
   fileInput: assertExists(refs.fileInput, 'fileInput'),
   printButton: assertExists(refs.printButton, 'printButton'),
+  logoutButton: assertExists(refs.logoutButton, 'logoutButton'),
   modal: assertExists(refs.modal, 'modal'),
   modalContent: assertExists(refs.modalContent, 'modalContent'),
   applyRosterButton: assertExists(refs.applyRosterButton, 'applyRosterButton'),
@@ -576,6 +668,73 @@ const renderMetadata = (): void => {
   ui.activePeriodValue.textContent = state.activeRoster?.periodLabel || '--';
 };
 
+const updateAuthView = (): void => {
+  const authenticated = isAuthenticated();
+  const route = getCurrentRoute();
+
+  if (!authenticated && route === 'dashboard') {
+    syncRoute('login');
+  }
+
+  if (authenticated && route === 'login') {
+    syncRoute('dashboard');
+  }
+
+  ui.loginScreen.classList.toggle('hidden', authenticated);
+  ui.dashboardShell.classList.toggle('hidden', !authenticated);
+};
+
+const handleLoginSubmit = (event: SubmitEvent): void => {
+  event.preventDefault();
+
+  const username = ui.usernameInput.value.trim();
+  const password = ui.passwordInput.value;
+
+  const submitButton = ui.loginSubmit;
+  const submitLabel = submitButton.querySelector<HTMLSpanElement>('.login-button-label');
+  const loginError = ui.loginError;
+
+  if (!submitLabel) {
+    return;
+  }
+
+  if (!username || !password) {
+    loginError.textContent = 'Username dan password wajib diisi.';
+    loginError.classList.add('visible');
+    return;
+  }
+
+  if (username !== DEMO_USERNAME || password !== DEMO_PASSWORD) {
+    loginError.textContent = 'Username atau password salah. Silakan coba lagi.';
+    loginError.classList.add('visible');
+    return;
+  }
+
+  submitButton.disabled = true;
+  submitLabel.textContent = 'Memproses...';
+  loginError.textContent = '';
+  loginError.classList.remove('visible');
+
+  window.setTimeout(() => {
+    sessionStorage.setItem(AUTH_STORAGE_KEY, 'true');
+    syncRoute('dashboard');
+    updateAuthView();
+    submitButton.disabled = false;
+    submitLabel.textContent = 'Login';
+    ui.usernameInput.value = '';
+    ui.passwordInput.value = '';
+    ui.passwordInput.type = 'password';
+    ui.togglePassword.textContent = 'Show';
+  }, 350);
+};
+
+const handleLogout = (): void => {
+  sessionStorage.removeItem(AUTH_STORAGE_KEY);
+  setAlert('Anda telah keluar dari sesi.', 'success');
+  syncRoute('login');
+  updateAuthView();
+};
+
 const renderApp = (): void => {
   ui.resetRosterButton.disabled = !state.activeRoster;
 
@@ -757,6 +916,7 @@ ui.fileInput.addEventListener('change', async (event) => {
   input.value = '';
 });
 ui.printButton.addEventListener('click', () => window.print());
+ui.logoutButton.addEventListener('click', handleLogout);
 ui.dateSelect.addEventListener('change', (event) => {
   state.selectedDate = (event.target as HTMLSelectElement).value;
   renderSummaryCards();
@@ -777,13 +937,36 @@ ui.applyRosterButton.addEventListener('click', () => {
   applyActiveRoster(state.pendingRoster);
   closeUploadModal();
 });
+ui.togglePassword.addEventListener('click', () => {
+  const shouldShow = ui.passwordInput.type === 'password';
+  ui.passwordInput.type = shouldShow ? 'text' : 'password';
+  ui.togglePassword.textContent = shouldShow ? 'Hide' : 'Show';
+  ui.togglePassword.setAttribute('aria-label', shouldShow ? 'Sembunyikan password' : 'Tampilkan password');
+});
+ui.loginForm.addEventListener('submit', handleLoginSubmit);
+ui.usernameInput.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    ui.loginForm.requestSubmit();
+  }
+});
+ui.passwordInput.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    ui.loginForm.requestSubmit();
+  }
+});
 document.addEventListener('click', (event) => {
   const target = event.target as HTMLElement;
   if (target.matches('[data-close-modal="true"]')) {
     closeUploadModal();
   }
 });
+window.addEventListener('hashchange', () => {
+  updateAuthView();
+});
 window.addEventListener('load', () => {
   restoreSavedRoster();
+  updateAuthView();
   renderApp();
 });
