@@ -2,7 +2,10 @@
 import * as XLSX from 'xlsx';
 
 type Status = 'PAGI' | 'SIANG' | 'Office Hour' | '';
-type ActiveTab = 'daily' | 'monthly';
+type ActiveTab = 'daily' | 'monthly' | 'activity';
+type ActivityViewMode = 'list' | 'form' | 'view';
+type DailyActivityShift = 'Pagi' | 'Siang' | 'Office Hour' | 'Libur';
+type DailyActivityStatus = 'Draft' | 'Submitted' | 'Reviewed' | 'Closed';
 
 type DateInfo = {
   key: string;
@@ -27,6 +30,50 @@ type RosterData = {
   periodLabel: string;
 };
 
+type DailyActivityEvent = {
+  id: string;
+  time: string;
+  contact: string;
+  location: string;
+  overview: string;
+  measures: string;
+  result: string;
+};
+
+type DailyActivityNotification = {
+  id: string;
+  person: string;
+  content: string;
+};
+
+type DailyActivityHandover = {
+  sparePartsStatus: 'Yes' | 'No' | '';
+  handoverPerson: string;
+  takeoverPerson: string;
+  handoverMatters: string;
+  handoverTime: string;
+  takeoverTime: string;
+  acknowledgedBy: string;
+};
+
+type DailyActivityReport = {
+  id: string;
+  date: string;
+  personOnDuty: string;
+  shift: DailyActivityShift;
+  status: DailyActivityStatus;
+  events: DailyActivityEvent[];
+  notifications: DailyActivityNotification[];
+  handover: DailyActivityHandover;
+};
+
+type ActivityFilters = {
+  date: string;
+  person: string;
+  shift: string;
+  status: string;
+};
+
 type AppState = {
   activeRoster: RosterData | null;
   pendingRoster: RosterData | null;
@@ -36,6 +83,11 @@ type AppState = {
   activeTab: ActiveTab;
   lastUpdated: Date | null;
   lastFileName: string;
+  activityReports: DailyActivityReport[];
+  activityMode: ActivityViewMode;
+  activityDraft: DailyActivityReport | null;
+  activitySelectedId: string | null;
+  activityFilters: ActivityFilters;
 };
 
 const app = document.querySelector<HTMLDivElement>('#app');
@@ -128,6 +180,7 @@ app.innerHTML = `
       <nav class="sidebar-nav" aria-label="Navigation utama">
         <button class="nav-button is-active" data-tab="daily" type="button">Dashboard Harian</button>
         <button class="nav-button" data-tab="monthly" type="button">Roster Bulanan</button>
+        <button class="nav-button" data-tab="activity" type="button">Daily Activity</button>
       </nav>
 
       <div class="sidebar-card">
@@ -206,6 +259,7 @@ app.innerHTML = `
 
       <section id="daily-panel" class="view-panel"></section>
       <section id="monthly-panel" class="view-panel hidden"></section>
+      <section id="activity-panel" class="view-panel hidden" aria-live="polite"></section>
 
       <footer class="meta-bar">
         <div>
@@ -237,6 +291,8 @@ app.innerHTML = `
       </div>
     </div>
   </div>
+
+  <div id="activity-print-root" class="activity-print-root hidden"></div>
 `;
 
 const refs = {
@@ -253,6 +309,8 @@ const refs = {
   searchInput: document.querySelector<HTMLInputElement>('#search-input') as HTMLInputElement | null,
   dailyPanel: document.querySelector<HTMLDivElement>('#daily-panel') as HTMLDivElement | null,
   monthlyPanel: document.querySelector<HTMLDivElement>('#monthly-panel') as HTMLDivElement | null,
+  activityPanel: document.querySelector<HTMLDivElement>('#activity-panel') as HTMLDivElement | null,
+  activityPrintRoot: document.querySelector<HTMLDivElement>('#activity-print-root') as HTMLDivElement | null,
   alertBox: document.querySelector<HTMLDivElement>('#alert-box') as HTMLDivElement | null,
   lastUpdatedValue: document.querySelector<HTMLElement>('#last-updated-value') as HTMLElement | null,
   activeFileValue: document.querySelector<HTMLElement>('#active-file-value') as HTMLElement | null,
@@ -288,6 +346,8 @@ const ui = {
   searchInput: assertExists(refs.searchInput, 'searchInput'),
   dailyPanel: assertExists(refs.dailyPanel, 'dailyPanel'),
   monthlyPanel: assertExists(refs.monthlyPanel, 'monthlyPanel'),
+  activityPanel: assertExists(refs.activityPanel, 'activityPanel'),
+  activityPrintRoot: assertExists(refs.activityPrintRoot, 'activityPrintRoot'),
   alertBox: assertExists(refs.alertBox, 'alertBox'),
   lastUpdatedValue: assertExists(refs.lastUpdatedValue, 'lastUpdatedValue'),
   activeFileValue: assertExists(refs.activeFileValue, 'activeFileValue'),
@@ -311,10 +371,194 @@ const state: AppState = {
   activeTab: 'daily',
   lastUpdated: null,
   lastFileName: '',
+  activityReports: [],
+  activityMode: 'list',
+  activityDraft: null,
+  activitySelectedId: null,
+  activityFilters: {
+    date: '',
+    person: '',
+    shift: '',
+    status: '',
+  },
 };
 
 const ROSTER_STORAGE_KEY = 'roster-dashboard.active-roster.v1';
 const ASIA_JAKARTA_TIMEZONE = 'Asia/Jakarta';
+const DAILY_ACTIVITY_SHIFT_OPTIONS: readonly DailyActivityShift[] = ['Pagi', 'Siang', 'Office Hour', 'Libur'];
+const DAILY_ACTIVITY_STATUS_OPTIONS: readonly DailyActivityStatus[] = ['Draft', 'Submitted', 'Reviewed', 'Closed'];
+
+const createActivityId = (): string => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `activity-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
+const createEmptyActivityEvent = (): DailyActivityEvent => ({
+  id: createActivityId(),
+  time: '',
+  contact: '',
+  location: '',
+  overview: '',
+  measures: '',
+  result: '',
+});
+
+const createEmptyActivityNotification = (): DailyActivityNotification => ({
+  id: createActivityId(),
+  person: '',
+  content: '',
+});
+
+const createEmptyActivityReport = (): DailyActivityReport => ({
+  id: createActivityId(),
+  date: getCurrentDateKeyInTimeZone(),
+  personOnDuty: '',
+  shift: 'Pagi',
+  status: 'Draft',
+  events: [createEmptyActivityEvent()],
+  notifications: [createEmptyActivityNotification()],
+  handover: {
+    sparePartsStatus: '',
+    handoverPerson: '',
+    takeoverPerson: '',
+    handoverMatters: '',
+    handoverTime: '',
+    takeoverTime: '',
+    acknowledgedBy: '',
+  },
+});
+
+const cloneActivityReport = (report: DailyActivityReport): DailyActivityReport => ({
+  ...report,
+  events: report.events.map((event) => ({ ...event })),
+  notifications: report.notifications.map((notification) => ({ ...notification })),
+  handover: { ...report.handover },
+});
+
+const getActivityStatusClass = (status: DailyActivityStatus): string => {
+  if (status === 'Submitted') return 'submitted';
+  if (status === 'Reviewed') return 'reviewed';
+  if (status === 'Closed') return 'closed';
+  return 'draft';
+};
+
+const DAILY_ACTIVITY_REPORTS: DailyActivityReport[] = [
+  {
+    id: 'act-1001',
+    date: '2026-10-18',
+    personOnDuty: 'Andi Pratama',
+    shift: 'Pagi',
+    status: 'Submitted',
+    events: [
+      {
+        id: 'evt-1',
+        time: '06:40',
+        contact: 'Monitoring Team',
+        location: 'Server Room',
+        overview: 'UPS battery alarm on main rack.',
+        measures: 'Checked battery voltage and reset the alarm panel.',
+        result: 'Normal after reset',
+      },
+      {
+        id: 'evt-2',
+        time: '09:25',
+        contact: 'User Support',
+        location: 'Network Hub',
+        overview: 'Intermittent connection at branch office.',
+        measures: 'Re-seated uplink cable and verified switch log.',
+        result: 'Connection stable',
+      },
+    ],
+    notifications: [
+      { id: 'ntf-1', person: 'Helpdesk', content: 'Branch connectivity alert resolved after physical inspection.' },
+      { id: 'ntf-2', person: 'Network Team', content: 'UPS maintenance will be scheduled at the next planned window.' },
+    ],
+    handover: {
+      sparePartsStatus: 'Yes',
+      handoverPerson: 'Andi Pratama',
+      takeoverPerson: 'Rina Damayanti',
+      handoverMatters: 'Follow up alarm log and battery health review.',
+      handoverTime: '15:00',
+      takeoverTime: '07:00',
+      acknowledgedBy: 'Rina Damayanti',
+    },
+  },
+  {
+    id: 'act-1002',
+    date: '2026-10-19',
+    personOnDuty: 'Rina Damayanti',
+    shift: 'Siang',
+    status: 'Reviewed',
+    events: [
+      {
+        id: 'evt-3',
+        time: '13:05',
+        contact: 'CCTV Team',
+        location: 'Data Center Entrance',
+        overview: 'Door sensor mismatch on access panel.',
+        measures: 'Adjusted sensor threshold and confirmed door logs.',
+        result: 'Operational',
+      },
+    ],
+    notifications: [
+      { id: 'ntf-3', person: 'Security Office', content: 'Access sensor was re-calibrated and noted for preventive check.' },
+    ],
+    handover: {
+      sparePartsStatus: 'No',
+      handoverPerson: 'Rina Damayanti',
+      takeoverPerson: 'Budi Santoso',
+      handoverMatters: 'CCTV sensor recalibration completed. Pending weekly preventive inspection.',
+      handoverTime: '22:00',
+      takeoverTime: '06:00',
+      acknowledgedBy: 'Budi Santoso',
+    },
+  },
+  {
+    id: 'act-1003',
+    date: '2026-10-20',
+    personOnDuty: 'Budi Santoso',
+    shift: 'Office Hour',
+    status: 'Closed',
+    events: [
+      {
+        id: 'evt-4',
+        time: '08:45',
+        contact: 'Facility Team',
+        location: 'Main Office',
+        overview: 'Air-conditioning unit intermittently tripped.',
+        measures: 'Verified breaker and restarted unit after checking load.',
+        result: 'Stable and monitored',
+      },
+      {
+        id: 'evt-5',
+        time: '15:30',
+        contact: 'IT Support',
+        location: 'Workstation Zone',
+        overview: 'Two workstations reported slow login.',
+        measures: 'Checked local cache and restarted service queue.',
+        result: 'Login latency resolved',
+      },
+    ],
+    notifications: [
+      { id: 'ntf-4', person: 'Facilities', content: 'AC trip report shared with maintenance for preventive inspection.' },
+    ],
+    handover: {
+      sparePartsStatus: 'Yes',
+      handoverPerson: 'Budi Santoso',
+      takeoverPerson: 'Andi Pratama',
+      handoverMatters: 'Two workstations were stabilized and AC breaker was reviewed.',
+      handoverTime: '17:00',
+      takeoverTime: '07:00',
+      acknowledgedBy: 'Andi Pratama',
+    },
+  },
+];
+
+state.activityReports = DAILY_ACTIVITY_REPORTS;
+state.activitySelectedId = DAILY_ACTIVITY_REPORTS[0]?.id ?? null;
 
 type PersistedRoster = {
   roster: RosterData;
@@ -761,6 +1005,562 @@ const renderMonthlyPanel = (): void => {
   `;
 };
 
+const formatActivityDate = (value: string): string => {
+  if (!value) return '--';
+  const date = createDateFromValue(value);
+  if (!date) return value;
+  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+};
+
+const getVisibleDailyActivityReports = (): DailyActivityReport[] => {
+  const { date, person, shift, status } = state.activityFilters;
+
+  return state.activityReports.filter((report) => {
+    const matchesDate = !date || report.date === date;
+    const matchesPerson = !person || report.personOnDuty.toLowerCase().includes(person.toLowerCase());
+    const matchesShift = !shift || report.shift === shift;
+    const matchesStatus = !status || report.status === status;
+    return matchesDate && matchesPerson && matchesShift && matchesStatus;
+  });
+};
+
+const renderDailyActivityList = (): string => {
+  const visibleReports = getVisibleDailyActivityReports();
+
+  if (!visibleReports.length) {
+    return `
+      <div class="panel-header">
+        <div>
+          <p class="panel-kicker">Daily Activity</p>
+          <h2>Daily Activity</h2>
+        </div>
+        <button type="button" class="primary-button" data-activity-action="create">Create New Report</button>
+      </div>
+      <div class="empty-state">Tidak ada laporan yang sesuai dengan filter saat ini.</div>
+    `;
+  }
+
+  return `
+    <div class="panel-header">
+      <div>
+        <p class="panel-kicker">Daily Activity</p>
+        <h2>Daily Activity</h2>
+      </div>
+      <button type="button" class="primary-button" data-activity-action="create">Create New Report</button>
+    </div>
+
+    <div class="activity-filters">
+      <label class="field-wrap compact-field">
+        <span>Report Date</span>
+        <input type="date" data-activity-filter="date" value="${state.activityFilters.date}" />
+      </label>
+      <label class="field-wrap compact-field">
+        <span>Personnel</span>
+        <input type="search" data-activity-filter="person" value="${state.activityFilters.person}" placeholder="Search person on duty" />
+      </label>
+      <label class="field-wrap compact-field">
+        <span>Shift</span>
+        <select data-activity-filter="shift">
+          <option value="">All</option>
+          ${DAILY_ACTIVITY_SHIFT_OPTIONS.map((option) => `<option value="${option}" ${state.activityFilters.shift === option ? 'selected' : ''}>${option}</option>`).join('')}
+        </select>
+      </label>
+      <label class="field-wrap compact-field">
+        <span>Status</span>
+        <select data-activity-filter="status">
+          <option value="">All</option>
+          ${DAILY_ACTIVITY_STATUS_OPTIONS.map((option) => `<option value="${option}" ${state.activityFilters.status === option ? 'selected' : ''}>${option}</option>`).join('')}
+        </select>
+      </label>
+    </div>
+
+    <div class="table-scroll">
+      <table class="daily-activity-table">
+        <thead>
+          <tr>
+            <th>Report Date</th>
+            <th>Person on Duty</th>
+            <th>Shift</th>
+            <th>Fault/Event Count</th>
+            <th>Information Notification Count</th>
+            <th>Handover Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${visibleReports
+            .map(
+              (report) => `
+                <tr>
+                  <td>${formatActivityDate(report.date)}</td>
+                  <td>${report.personOnDuty || '—'}</td>
+                  <td><span class="shift-badge ${report.shift.toLowerCase().replace(/\s+/g, '-')}">${report.shift}</span></td>
+                  <td>${report.events.filter((event) => Object.values(event).some((value) => typeof value === 'string' && value.trim().length > 0)).length}</td>
+                  <td>${report.notifications.filter((notification) => notification.person.trim() || notification.content.trim()).length}</td>
+                  <td><span class="activity-status-badge ${getActivityStatusClass(report.status)}">${report.status}</span></td>
+                  <td>
+                    <div class="activity-actions">
+                      <button type="button" class="secondary-button compact-button" data-activity-action="open" data-report-id="${report.id}">Open</button>
+                      <button type="button" class="secondary-button compact-button" data-activity-action="edit" data-report-id="${report.id}">Edit</button>
+                      <button type="button" class="secondary-button compact-button" data-activity-action="print" data-report-id="${report.id}">Print</button>
+                      <button type="button" class="danger-button compact-button" data-activity-action="delete" data-report-id="${report.id}">Remove</button>
+                    </div>
+                  </td>
+                </tr>
+              `,
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+};
+
+const renderDailyActivityView = (): string => {
+  const report = state.activityReports.find((item) => item.id === state.activitySelectedId) ?? null;
+  if (!report) {
+    return '<div class="empty-state">Report not found.</div>';
+  }
+
+  const validEvents = report.events.filter((event) => [event.time, event.contact, event.location, event.overview, event.measures, event.result].some((value) => value.trim().length > 0));
+  const validNotifications = report.notifications.filter((notice) => notice.person.trim().length > 0 || notice.content.trim().length > 0);
+
+  return `
+    <div class="panel-header">
+      <div>
+        <p class="panel-kicker">Daily Activity</p>
+        <h2>Report Detail</h2>
+      </div>
+      <div class="inline-actions">
+        <button type="button" class="secondary-button" data-activity-action="list">Back to Reports</button>
+        <button type="button" class="secondary-button" data-activity-action="edit" data-report-id="${report.id}">Edit</button>
+        <button type="button" class="primary-button" data-activity-action="print" data-report-id="${report.id}">Print Report</button>
+      </div>
+    </div>
+
+    <div class="activity-summary-grid">
+      <div class="activity-summary-box"><span>Date</span><strong>${formatActivityDate(report.date)}</strong></div>
+      <div class="activity-summary-box"><span>Person on Duty</span><strong>${report.personOnDuty || '—'}</strong></div>
+      <div class="activity-summary-box"><span>Shift</span><strong>${report.shift}</strong></div>
+      <div class="activity-summary-box"><span>Handover Status</span><strong>${report.status}</strong></div>
+    </div>
+
+    <div class="activity-card">
+      <h3>Fault & Event Registration</h3>
+      <div class="table-scroll">
+        <table class="daily-activity-table">
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>Time</th>
+              <th>Report Person / Team (Contact)</th>
+              <th>Event Location</th>
+              <th>Fault / Event Overview</th>
+              <th>Disposal Measures</th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${validEvents.length
+              ? validEvents
+                  .map(
+                    (event, index) => `
+                      <tr>
+                        <td>${index + 1}</td>
+                        <td>${event.time || '—'}</td>
+                        <td>${event.contact || '—'}</td>
+                        <td>${event.location || '—'}</td>
+                        <td>${event.overview || '—'}</td>
+                        <td>${event.measures || '—'}</td>
+                        <td>${event.result || '—'}</td>
+                      </tr>
+                    `,
+                  )
+                  .join('')
+              : '<tr><td colspan="7">No fault and event entry recorded.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="activity-card">
+      <h3>Information Notification Record</h3>
+      <div class="table-scroll">
+        <table class="daily-activity-table">
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>Notifying Person / Team</th>
+              <th>Content</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${validNotifications.length
+              ? validNotifications
+                  .map(
+                    (notification, index) => `
+                      <tr>
+                        <td>${index + 1}</td>
+                        <td>${notification.person || '—'}</td>
+                        <td>${notification.content || '—'}</td>
+                      </tr>
+                    `,
+                  )
+                  .join('')
+              : '<tr><td colspan="3">No notification record entered.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="handover-overview">
+      <div class="handover-box">
+        <h3>Handover Record</h3>
+        <div class="handover-row"><span>Are spare parts, tools and auxiliary materials complete?</span><strong>${report.handover.sparePartsStatus || '—'}</strong></div>
+        <div class="handover-row"><span>Handover Matters</span><p>${report.handover.handoverMatters || '—'}</p></div>
+      </div>
+      <div class="handover-box">
+        <div class="handover-grid">
+          <div><label>Handover Person</label><strong>${report.handover.handoverPerson || '—'}</strong></div>
+          <div><label>Time</label><strong>${report.handover.handoverTime || '—'}</strong></div>
+          <div><label>Takeover Person</label><strong>${report.handover.takeoverPerson || '—'}</strong></div>
+          <div><label>Time</label><strong>${report.handover.takeoverTime || '—'}</strong></div>
+          <div class="acknowledged-field"><label>Acknowledged by</label><strong>${report.handover.acknowledgedBy || '—'}</strong></div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+const renderDailyActivityForm = (): string => {
+  const draft = state.activityDraft;
+  if (!draft) {
+    return '<div class="empty-state">No report draft available.</div>';
+  }
+
+  return `
+    <div class="panel-header">
+      <div>
+        <p class="panel-kicker">Daily Activity</p>
+        <h2>${draft.id ? 'Edit Report' : 'New Report'}</h2>
+      </div>
+      <div class="inline-actions">
+        <button type="button" class="secondary-button" data-activity-action="list">Back to Reports</button>
+        <button type="button" class="primary-button" data-activity-action="save">Save Report</button>
+      </div>
+    </div>
+
+    <form id="daily-activity-form" class="daily-activity-form" novalidate>
+      <div class="activity-form-grid">
+        <label class="field-wrap">
+          <span>Date</span>
+          <input type="date" data-activity-scope="report" data-field="date" value="${draft.date}" required />
+        </label>
+        <label class="field-wrap">
+          <span>Person On Duty</span>
+          <input type="text" data-activity-scope="report" data-field="personOnDuty" value="${draft.personOnDuty}" placeholder="Name of person on duty" required />
+        </label>
+        <label class="field-wrap">
+          <span>Shift</span>
+          <select data-activity-scope="report" data-field="shift">
+            ${DAILY_ACTIVITY_SHIFT_OPTIONS.map((option) => `<option value="${option}" ${draft.shift === option ? 'selected' : ''}>${option}</option>`).join('')}
+          </select>
+        </label>
+      </div>
+
+      <div class="activity-card">
+        <div class="activity-card-header">
+          <h3>Fault & Event Registration</h3>
+          <button type="button" class="secondary-button compact-button" data-activity-action="add-event">Add Event</button>
+        </div>
+        <div class="table-scroll">
+          <table class="daily-activity-table">
+            <thead>
+              <tr>
+                <th>No.</th>
+                <th>Time</th>
+                <th>Report Person / Team (Contact)</th>
+                <th>Event Location</th>
+                <th>Fault / Event Overview</th>
+                <th>Disposal Measures</th>
+                <th>Result</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${draft.events
+                .map(
+                  (event, index) => `
+                    <tr>
+                      <td>${index + 1}</td>
+                      <td><input type="time" data-activity-scope="event" data-event-id="${event.id}" data-field="time" value="${event.time}" /></td>
+                      <td><input type="text" data-activity-scope="event" data-event-id="${event.id}" data-field="contact" value="${event.contact}" /></td>
+                      <td><input type="text" data-activity-scope="event" data-event-id="${event.id}" data-field="location" value="${event.location}" /></td>
+                      <td><textarea data-activity-scope="event" data-event-id="${event.id}" data-field="overview" rows="2">${event.overview}</textarea></td>
+                      <td><textarea data-activity-scope="event" data-event-id="${event.id}" data-field="measures" rows="2">${event.measures}</textarea></td>
+                      <td><textarea data-activity-scope="event" data-event-id="${event.id}" data-field="result" rows="2">${event.result}</textarea></td>
+                      <td><button type="button" class="danger-button" data-activity-action="remove-event" data-event-id="${event.id}">Remove</button></td>
+                    </tr>
+                  `,
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="activity-card">
+        <div class="activity-card-header">
+          <h3>Information Notification Record</h3>
+          <button type="button" class="secondary-button compact-button" data-activity-action="add-notification">Add Notification</button>
+        </div>
+        <div class="table-scroll">
+          <table class="daily-activity-table">
+            <thead>
+              <tr>
+                <th>No.</th>
+                <th>Notifying Person / Team</th>
+                <th>Content</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${draft.notifications
+                .map(
+                  (notification, index) => `
+                    <tr>
+                      <td>${index + 1}</td>
+                      <td><input type="text" data-activity-scope="notification" data-notification-id="${notification.id}" data-field="person" value="${notification.person}" /></td>
+                      <td><textarea data-activity-scope="notification" data-notification-id="${notification.id}" data-field="content" rows="3">${notification.content}</textarea></td>
+                      <td><button type="button" class="danger-button" data-activity-action="remove-notification" data-notification-id="${notification.id}">Remove</button></td>
+                    </tr>
+                  `,
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="handover-form-layout">
+        <div class="handover-panel">
+          <h3>Handover Record</h3>
+          <div class="handover-question">
+            <span>Are spare parts, tools and auxiliary materials complete?</span>
+            <label><input type="radio" data-activity-scope="handover" data-field="sparePartsStatus" name="spare-parts-status" value="Yes" ${draft.handover.sparePartsStatus === 'Yes' ? 'checked' : ''} /> Yes</label>
+            <label><input type="radio" data-activity-scope="handover" data-field="sparePartsStatus" name="spare-parts-status" value="No" ${draft.handover.sparePartsStatus === 'No' ? 'checked' : ''} /> No</label>
+          </div>
+          <label class="field-wrap full-width">
+            <span>Handover Matters</span>
+            <textarea data-activity-scope="handover" data-field="handoverMatters" rows="4">${draft.handover.handoverMatters}</textarea>
+          </label>
+        </div>
+
+        <div class="handover-panel">
+          <div class="handover-grid-form">
+            <label class="field-wrap">
+              <span>Handover Person</span>
+              <input type="text" data-activity-scope="handover" data-field="handoverPerson" value="${draft.handover.handoverPerson}" />
+            </label>
+            <label class="field-wrap">
+              <span>Handover Person Time</span>
+              <input type="time" data-activity-scope="handover" data-field="handoverTime" value="${draft.handover.handoverTime}" />
+            </label>
+            <label class="field-wrap">
+              <span>Takeover Person</span>
+              <input type="text" data-activity-scope="handover" data-field="takeoverPerson" value="${draft.handover.takeoverPerson}" />
+            </label>
+            <label class="field-wrap">
+              <span>Takeover Person Time</span>
+              <input type="time" data-activity-scope="handover" data-field="takeoverTime" value="${draft.handover.takeoverTime}" />
+            </label>
+            <label class="field-wrap full-width">
+              <span>Acknowledged by</span>
+              <input type="text" data-activity-scope="handover" data-field="acknowledgedBy" value="${draft.handover.acknowledgedBy}" />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="activity-notes">
+        <p>1. "Fault and Event Registration" records the failure and event found in each shift.</p>
+        <p>2. "Information Notification Record" records the information system-related call records received by each shift.</p>
+      </div>
+    </form>
+  `;
+};
+
+const renderDailyActivityPanel = (): void => {
+  if (state.activeTab !== 'activity') {
+    ui.activityPanel.classList.add('hidden');
+    return;
+  }
+
+  ui.activityPanel.classList.remove('hidden');
+
+  if (state.activityMode === 'form') {
+    ui.activityPanel.innerHTML = renderDailyActivityForm();
+    return;
+  }
+
+  if (state.activityMode === 'view') {
+    ui.activityPanel.innerHTML = renderDailyActivityView();
+    return;
+  }
+
+  ui.activityPanel.innerHTML = renderDailyActivityList();
+};
+
+const renderDailyActivityPrint = (report: DailyActivityReport): void => {
+  const validEvents = report.events.filter((event) => [event.time, event.contact, event.location, event.overview, event.measures, event.result].some((value) => value.trim().length > 0));
+  const validNotifications = report.notifications.filter((record) => record.person.trim().length > 0 || record.content.trim().length > 0);
+
+  const printEvents = validEvents.length
+    ? validEvents
+        .map(
+          (event, index) => `
+            <tr>
+              <td>${index + 1}</td>
+              <td>${event.time || ''}</td>
+              <td>${event.contact || ''}</td>
+              <td>${event.location || ''}</td>
+              <td>${event.overview || ''}</td>
+              <td>${event.measures || ''}</td>
+              <td>${event.result || ''}</td>
+            </tr>
+          `,
+        )
+        .join('')
+    : '<tr><td colspan="7"> </td></tr>';
+
+  const printNotifications = validNotifications.length
+    ? validNotifications
+        .map(
+          (notification, index) => `
+            <tr>
+              <td>${index + 1}</td>
+              <td>${notification.person || ''}</td>
+              <td>${notification.content || ''}</td>
+            </tr>
+          `,
+        )
+        .join('')
+    : '<tr><td colspan="3"> </td></tr>';
+
+  ui.activityPrintRoot.classList.remove('hidden');
+  ui.activityPrintRoot.innerHTML = `
+    <div class="daily-activity-print-sheet">
+      <h1>Daily Operation and Maintenance<br />Shift Handover Records</h1>
+
+      <div class="print-header-grid">
+        <div class="print-field">
+          <span>Date</span>
+          <strong>${formatActivityDate(report.date)}</strong>
+        </div>
+        <div class="print-field">
+          <span>Person On Duty</span>
+          <strong>${report.personOnDuty || ''}</strong>
+        </div>
+        <div class="print-field">
+          <span>Shift</span>
+          <strong>${report.shift || ''}</strong>
+        </div>
+      </div>
+
+      <section class="print-section">
+        <h2>Fault & Event Registration</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>Time</th>
+              <th>Report Person / Team (Contact)</th>
+              <th>Event Location</th>
+              <th>Fault / Event Overview</th>
+              <th>Disposal Measures</th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody>${printEvents}</tbody>
+        </table>
+      </section>
+
+      <section class="print-section">
+        <h2>Information Notification Record</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>Notifying Person / Team</th>
+              <th>Content</th>
+            </tr>
+          </thead>
+          <tbody>${printNotifications}</tbody>
+        </table>
+      </section>
+
+      <section class="print-section handover-print-layout">
+        <div class="handover-left-box">
+          <div class="handover-yes-no">
+            <span>Are spare parts, tools and auxiliary materials complete?</span>
+            <div class="print-radio-row">
+              <span class="print-radio ${report.handover.sparePartsStatus === 'Yes' ? 'selected' : ''}">Yes</span>
+              <span class="print-radio ${report.handover.sparePartsStatus === 'No' ? 'selected' : ''}">No</span>
+            </div>
+          </div>
+          <div class="handover-matters-box">
+            <span>Handover Matters</span>
+            <p>${report.handover.handoverMatters || ''}</p>
+          </div>
+        </div>
+
+        <div class="handover-right-box">
+          <div class="handover-inline-grid">
+            <div class="print-field small-field">
+              <span>Handover Person</span>
+              <strong>${report.handover.handoverPerson || ''}</strong>
+            </div>
+            <div class="print-field small-field">
+              <span>Time</span>
+              <strong>${report.handover.handoverTime || ''}</strong>
+            </div>
+          </div>
+          <div class="handover-inline-grid">
+            <div class="print-field small-field">
+              <span>Takeover Person</span>
+              <strong>${report.handover.takeoverPerson || ''}</strong>
+            </div>
+            <div class="print-field small-field">
+              <span>Time</span>
+              <strong>${report.handover.takeoverTime || ''}</strong>
+            </div>
+          </div>
+          <div class="print-field small-field acknowledged-box">
+            <span>Acknowledged by</span>
+            <strong>${report.handover.acknowledgedBy || ''}</strong>
+          </div>
+        </div>
+      </section>
+
+      <div class="print-notes">
+        <p>1. "Fault and Event Registration" records the failure and event found in each shift.</p>
+        <p>2. "Information Notification Record" records the information system-related call records received by each shift.</p>
+      </div>
+    </div>
+  `;
+};
+
+const printDailyActivityReport = (reportId: string): void => {
+  const report = state.activityReports.find((item) => item.id === reportId);
+  if (!report) return;
+
+  state.activitySelectedId = reportId;
+  state.activityMode = 'view';
+  renderDailyActivityPanel();
+  renderDailyActivityPrint(report);
+  window.print();
+};
+
 const renderMetadata = (): void => {
   ui.lastUpdatedValue.textContent = state.lastUpdated ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(state.lastUpdated) : '--';
   ui.activeFileValue.textContent = state.lastFileName || state.activeRoster?.filename || '--';
@@ -848,6 +1648,131 @@ const syncDateWithCurrentDay = (): void => {
   }
 };
 
+const saveDailyActivityReport = (): void => {
+  if (!state.activityDraft) {
+    return;
+  }
+
+  const draft = state.activityDraft;
+  const normalizedDate = draft.date.trim();
+  const normalizedPerson = draft.personOnDuty.trim();
+
+  if (!normalizedDate || !normalizedPerson) {
+    setAlert('Report date and person on duty are required before saving.', 'error');
+    return;
+  }
+
+  const cleanedReport: DailyActivityReport = {
+    ...draft,
+    date: normalizedDate,
+    personOnDuty: normalizedPerson,
+    shift: draft.shift,
+    status: draft.status,
+    events: draft.events
+      .map((event) => ({
+        ...event,
+        time: event.time.trim(),
+        contact: event.contact.trim(),
+        location: event.location.trim(),
+        overview: event.overview.trim(),
+        measures: event.measures.trim(),
+        result: event.result.trim(),
+      }))
+      .filter((event) => Object.values(event).some((value) => value.trim().length > 0)),
+    notifications: draft.notifications
+      .map((notification) => ({
+        ...notification,
+        person: notification.person.trim(),
+        content: notification.content.trim(),
+      }))
+      .filter((notification) => notification.person.trim().length > 0 || notification.content.trim().length > 0),
+    handover: {
+      ...draft.handover,
+      handoverPerson: draft.handover.handoverPerson.trim(),
+      takeoverPerson: draft.handover.takeoverPerson.trim(),
+      handoverMatters: draft.handover.handoverMatters.trim(),
+      handoverTime: draft.handover.handoverTime.trim(),
+      takeoverTime: draft.handover.takeoverTime.trim(),
+      acknowledgedBy: draft.handover.acknowledgedBy.trim(),
+    },
+  };
+
+  const existingIndex = state.activityReports.findIndex((report) => report.id === cleanedReport.id);
+  if (existingIndex >= 0) {
+    state.activityReports.splice(existingIndex, 1, cleanedReport);
+  } else {
+    state.activityReports.unshift(cleanedReport);
+  }
+
+  state.activitySelectedId = cleanedReport.id;
+  state.activityDraft = null;
+  state.activityMode = 'list';
+  setAlert('Daily Activity report saved successfully.', 'success');
+  renderApp();
+};
+
+const handleActivityFieldInput = (target: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement): void => {
+  if (!state.activityDraft) {
+    return;
+  }
+
+  const field = target.dataset.field;
+  const scope = target.dataset.activityScope;
+
+  if (!field || !scope) {
+    return;
+  }
+
+  if (scope === 'report') {
+    if (field === 'date') {
+      state.activityDraft.date = target.value;
+    }
+    if (field === 'personOnDuty') {
+      state.activityDraft.personOnDuty = target.value;
+    }
+    if (field === 'shift') {
+      state.activityDraft.shift = target.value as DailyActivityShift;
+    }
+    return;
+  }
+
+  if (scope === 'event') {
+    const eventId = target.dataset.eventId;
+    if (!eventId) return;
+    const eventEntry = state.activityDraft.events.find((item) => item.id === eventId);
+    if (!eventEntry) return;
+    if (field === 'time') eventEntry.time = target.value;
+    if (field === 'contact') eventEntry.contact = target.value;
+    if (field === 'location') eventEntry.location = target.value;
+    if (field === 'overview') eventEntry.overview = target.value;
+    if (field === 'measures') eventEntry.measures = target.value;
+    if (field === 'result') eventEntry.result = target.value;
+    return;
+  }
+
+  if (scope === 'notification') {
+    const notificationId = target.dataset.notificationId;
+    if (!notificationId) return;
+    const notificationEntry = state.activityDraft.notifications.find((item) => item.id === notificationId);
+    if (!notificationEntry) return;
+    if (field === 'person') notificationEntry.person = target.value;
+    if (field === 'content') notificationEntry.content = target.value;
+    return;
+  }
+
+  if (scope === 'handover') {
+    if (field === 'sparePartsStatus') {
+      state.activityDraft.handover.sparePartsStatus = target.value as 'Yes' | 'No';
+    }
+    if (field === 'handoverPerson') state.activityDraft.handover.handoverPerson = target.value;
+    if (field === 'takeoverPerson') state.activityDraft.handover.takeoverPerson = target.value;
+    if (field === 'handoverMatters') state.activityDraft.handover.handoverMatters = target.value;
+    if (field === 'handoverTime') state.activityDraft.handover.handoverTime = target.value;
+    if (field === 'takeoverTime') state.activityDraft.handover.takeoverTime = target.value;
+    if (field === 'acknowledgedBy') state.activityDraft.handover.acknowledgedBy = target.value;
+  }
+};
+
 const renderApp = (): void => {
   ui.resetRosterButton.disabled = !state.activeRoster;
 
@@ -873,6 +1798,7 @@ const renderApp = (): void => {
   renderSummaryCards();
   renderDailyPanel();
   renderMonthlyPanel();
+  renderDailyActivityPanel();
   renderMetadata();
 
   document.querySelectorAll<HTMLButtonElement>('.nav-button').forEach((button) => {
@@ -882,6 +1808,7 @@ const renderApp = (): void => {
 
   ui.dailyPanel.classList.toggle('hidden', state.activeTab !== 'daily');
   ui.monthlyPanel.classList.toggle('hidden', state.activeTab !== 'monthly');
+  ui.activityPanel.classList.toggle('hidden', state.activeTab !== 'activity');
 };
 
 const openUploadModal = (roster: RosterData): void => {
@@ -1052,7 +1979,8 @@ ui.searchInput.addEventListener('input', (event) => {
 });
 document.querySelectorAll<HTMLButtonElement>('.nav-button').forEach((button) => {
   button.addEventListener('click', () => {
-    state.activeTab = button.dataset.tab === 'monthly' ? 'monthly' : 'daily';
+    const nextTab = button.dataset.tab === 'monthly' ? 'monthly' : button.dataset.tab === 'activity' ? 'activity' : 'daily';
+    state.activeTab = nextTab;
     renderApp();
   });
 });
@@ -1082,8 +2010,157 @@ ui.passwordInput.addEventListener('keydown', (event) => {
 });
 document.addEventListener('click', (event) => {
   const target = event.target as HTMLElement;
-  if (target.matches('[data-close-modal="true"]')) {
+  const modalCloseTrigger = target.closest('[data-close-modal="true"]');
+  if (modalCloseTrigger) {
     closeUploadModal();
+    return;
+  }
+
+  const activityButton = target.closest<HTMLButtonElement>('[data-activity-action]');
+  if (!activityButton) {
+    return;
+  }
+
+  const action = activityButton.dataset.activityAction;
+  if (!action) {
+    return;
+  }
+
+  if (action === 'create') {
+    state.activitySelectedId = null;
+    state.activityDraft = createEmptyActivityReport();
+    state.activityMode = 'form';
+    renderDailyActivityPanel();
+    return;
+  }
+
+  if (action === 'list') {
+    state.activityMode = 'list';
+    renderDailyActivityPanel();
+    return;
+  }
+
+  if (action === 'save') {
+    saveDailyActivityReport();
+    return;
+  }
+
+  if (action === 'open' || action === 'view') {
+    const reportId = activityButton.dataset.reportId;
+    if (!reportId) return;
+    state.activitySelectedId = reportId;
+    state.activityMode = 'view';
+    renderDailyActivityPanel();
+    return;
+  }
+
+  if (action === 'edit') {
+    const reportId = activityButton.dataset.reportId;
+    if (!reportId) return;
+    const report = state.activityReports.find((item) => item.id === reportId);
+    if (!report) return;
+    state.activitySelectedId = reportId;
+    state.activityDraft = cloneActivityReport(report);
+    state.activityMode = 'form';
+    renderDailyActivityPanel();
+    return;
+  }
+
+  if (action === 'print') {
+    const reportId = activityButton.dataset.reportId;
+    if (!reportId) return;
+    printDailyActivityReport(reportId);
+    return;
+  }
+
+  if (action === 'delete') {
+    const reportId = activityButton.dataset.reportId;
+    if (!reportId) return;
+    const report = state.activityReports.find((item) => item.id === reportId);
+    if (!report) return;
+    if (!window.confirm(`Delete the report for ${report.personOnDuty || 'this person'} on ${formatActivityDate(report.date)}?`)) {
+      return;
+    }
+    state.activityReports = state.activityReports.filter((item) => item.id !== reportId);
+    if (state.activitySelectedId === reportId) {
+      state.activitySelectedId = state.activityReports[0]?.id ?? null;
+    }
+    state.activityMode = 'list';
+    renderDailyActivityPanel();
+    return;
+  }
+
+  if (action === 'add-event') {
+    if (!state.activityDraft) return;
+    state.activityDraft.events.push(createEmptyActivityEvent());
+    renderDailyActivityPanel();
+    return;
+  }
+
+  if (action === 'remove-event') {
+    if (!state.activityDraft) return;
+    const eventId = activityButton.dataset.eventId;
+    if (!eventId) return;
+    if (state.activityDraft.events.length > 1) {
+      state.activityDraft.events = state.activityDraft.events.filter((item) => item.id !== eventId);
+    }
+    renderDailyActivityPanel();
+    return;
+  }
+
+  if (action === 'add-notification') {
+    if (!state.activityDraft) return;
+    state.activityDraft.notifications.push(createEmptyActivityNotification());
+    renderDailyActivityPanel();
+    return;
+  }
+
+  if (action === 'remove-notification') {
+    if (!state.activityDraft) return;
+    const notificationId = activityButton.dataset.notificationId;
+    if (!notificationId) return;
+    if (state.activityDraft.notifications.length > 1) {
+      state.activityDraft.notifications = state.activityDraft.notifications.filter((item) => item.id !== notificationId);
+    }
+    renderDailyActivityPanel();
+  }
+});
+
+document.addEventListener('input', (event) => {
+  const target = event.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+  const field = target.dataset.field;
+  if (!field) {
+    return;
+  }
+
+  if (target.dataset.activityFilter) {
+    const filterName = target.dataset.activityFilter as keyof typeof state.activityFilters;
+    state.activityFilters[filterName] = target.value;
+    renderDailyActivityPanel();
+    return;
+  }
+
+  if (target.dataset.activityScope) {
+    handleActivityFieldInput(target);
+  }
+});
+
+document.addEventListener('change', (event) => {
+  const target = event.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+  const field = target.dataset.field;
+  if (!field) {
+    return;
+  }
+
+  if (target.dataset.activityFilter) {
+    const filterName = target.dataset.activityFilter as keyof typeof state.activityFilters;
+    state.activityFilters[filterName] = target.value;
+    renderDailyActivityPanel();
+    return;
+  }
+
+  if (target.dataset.activityScope) {
+    handleActivityFieldInput(target);
   }
 });
 window.addEventListener('hashchange', () => {
@@ -1113,4 +2190,9 @@ window.addEventListener('beforeunload', () => {
   if (dailyDateWatcher) {
     window.clearInterval(dailyDateWatcher);
   }
+});
+
+window.addEventListener('afterprint', () => {
+  ui.activityPrintRoot.classList.add('hidden');
+  ui.activityPrintRoot.innerHTML = '';
 });

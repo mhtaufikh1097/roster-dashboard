@@ -102,6 +102,7 @@
       <nav class="sidebar-nav" aria-label="Navigation utama">
         <button class="nav-button is-active" data-tab="daily" type="button">Dashboard Harian</button>
         <button class="nav-button" data-tab="monthly" type="button">Roster Bulanan</button>
+        <button class="nav-button" data-tab="activity" type="button">Daily Activity</button>
       </nav>
 
       <div class="sidebar-card">
@@ -180,6 +181,7 @@
 
       <section id="daily-panel" class="view-panel"></section>
       <section id="monthly-panel" class="view-panel hidden"></section>
+      <section id="activity-panel" class="view-panel hidden" aria-live="polite"></section>
 
       <footer class="meta-bar">
         <div>
@@ -211,12 +213,14 @@
       </div>
     </div>
   </div>
-`;var Am={loginScreen:document.querySelector(`#login-screen`),loginForm:document.querySelector(`#login-form`),usernameInput:document.querySelector(`#username-input`),passwordInput:document.querySelector(`#password-input`),loginSubmit:document.querySelector(`#login-submit`),togglePassword:document.querySelector(`#toggle-password`),loginError:document.querySelector(`#login-error`),dashboardShell:document.querySelector(`#dashboard-shell`),summaryGrid:document.querySelector(`#summary-grid`),dateSelect:document.querySelector(`#date-select`),searchInput:document.querySelector(`#search-input`),dailyPanel:document.querySelector(`#daily-panel`),monthlyPanel:document.querySelector(`#monthly-panel`),alertBox:document.querySelector(`#alert-box`),lastUpdatedValue:document.querySelector(`#last-updated-value`),activeFileValue:document.querySelector(`#active-file-value`),activePeriodValue:document.querySelector(`#active-period-value`),uploadTrigger:document.querySelector(`#upload-trigger`),resetRosterButton:document.querySelector(`#reset-roster-button`),fileInput:document.querySelector(`#file-input`),printButton:document.querySelector(`#print-button`),logoutButton:document.querySelector(`#logout-button`),modal:document.querySelector(`#upload-modal`),modalContent:document.querySelector(`#modal-content`),applyRosterButton:document.querySelector(`#apply-roster-button`)},jm=(e,t)=>{if(e==null)throw Error(`${t} is missing`);return e},Z={loginScreen:jm(Am.loginScreen,`loginScreen`),loginForm:jm(Am.loginForm,`loginForm`),usernameInput:jm(Am.usernameInput,`usernameInput`),passwordInput:jm(Am.passwordInput,`passwordInput`),loginSubmit:jm(Am.loginSubmit,`loginSubmit`),togglePassword:jm(Am.togglePassword,`togglePassword`),loginError:jm(Am.loginError,`loginError`),dashboardShell:jm(Am.dashboardShell,`dashboardShell`),summaryGrid:jm(Am.summaryGrid,`summaryGrid`),dateSelect:jm(Am.dateSelect,`dateSelect`),searchInput:jm(Am.searchInput,`searchInput`),dailyPanel:jm(Am.dailyPanel,`dailyPanel`),monthlyPanel:jm(Am.monthlyPanel,`monthlyPanel`),alertBox:jm(Am.alertBox,`alertBox`),lastUpdatedValue:jm(Am.lastUpdatedValue,`lastUpdatedValue`),activeFileValue:jm(Am.activeFileValue,`activeFileValue`),activePeriodValue:jm(Am.activePeriodValue,`activePeriodValue`),uploadTrigger:jm(Am.uploadTrigger,`uploadTrigger`),resetRosterButton:jm(Am.resetRosterButton,`resetRosterButton`),fileInput:jm(Am.fileInput,`fileInput`),printButton:jm(Am.printButton,`printButton`),logoutButton:jm(Am.logoutButton,`logoutButton`),modal:jm(Am.modal,`modal`),modalContent:jm(Am.modalContent,`modalContent`),applyRosterButton:jm(Am.applyRosterButton,`applyRosterButton`)},Q={activeRoster:null,pendingRoster:null,selectedDate:``,defaultDateKey:``,searchTerm:``,activeTab:`daily`,lastUpdated:null,lastFileName:``},Mm=`roster-dashboard.active-roster.v1`,Nm=`Asia/Jakarta`,Pm=(e,t)=>{let n=new Intl.DateTimeFormat(`en-CA`,{timeZone:t,year:`numeric`,month:`2-digit`,day:`2-digit`}).formatToParts(e),r=new Map;for(let e of n)e.type!==`literal`&&r.set(e.type,e.value);return{year:Number(r.get(`year`)??0),month:Number(r.get(`month`)??0),day:Number(r.get(`day`)??0)}},Fm=(e,t=Nm)=>{let{year:n,month:r,day:i}=Pm(e,t);return`${n}-${String(r).padStart(2,`0`)}-${String(i).padStart(2,`0`)}`},Im=e=>{if(e instanceof Date)return Number.isNaN(e.getTime())?null:e;let t=String(e??``).trim();if(!t)return null;if(/^\d{4}-\d{2}-\d{2}$/.test(t))return new Date(`${t}T00:00:00+07:00`);let n=new Date(t);return Number.isNaN(n.getTime())?null:n},Lm=e=>new Intl.DateTimeFormat(`en-GB`,{timeZone:Nm,day:`2-digit`,month:`short`,year:`numeric`}).format(e),Rm=e=>new Intl.DateTimeFormat(`en-US`,{timeZone:Nm,weekday:`long`}).format(e),zm=(e=Nm)=>Fm(new Date,e),Bm=e=>{let t=zm();return e.dates.some(e=>e.key===t)?t:e.dates[0]?.key??``},Vm=e=>e===``?`Libur`:e,Hm=e=>e===`PAGI`?`pagi`:e===`SIANG`?`siang`:e===`Office Hour`?`office`:`empty`,Um=e=>{let t=String(e??``).trim();if(!t)return{status:``,unknown:!1,raw:``};let n=t.replace(/\s+/g,` `),r=n.toUpperCase();return r===`PAGI`?{status:`PAGI`,unknown:!1,raw:n}:r===`SIANG`?{status:`SIANG`,unknown:!1,raw:n}:r===`OFFICE HOUR`?{status:`Office Hour`,unknown:!1,raw:n}:{status:``,unknown:!0,raw:n}},Wm=(e,t)=>{let n={pagi:0,siang:0,office:0,empty:0};return t.personnel.forEach(t=>{let r=t.schedule[e]??``;r===`PAGI`?n.pagi+=1:r===`SIANG`?n.siang+=1:r===`Office Hour`?n.office+=1:n.empty+=1}),n},Gm=e=>{let t={pagi:0,siang:0,office:0,empty:0,total:e.personnel.length};return e.dates.forEach(n=>{let r=Wm(n.key,e);t.pagi+=r.pagi,t.siang+=r.siang,t.office+=r.office,t.empty+=r.empty}),t},Km=(e,t)=>{e?(Z.alertBox.classList.remove(`hidden`),Z.alertBox.className=`alert-box ${t}`,Z.alertBox.textContent=e):(Z.alertBox.classList.add(`hidden`),Z.alertBox.textContent=``)},qm=(e,t)=>{let n=nm(e,{type:`array`,cellDates:!0}),r=n.Sheets[n.SheetNames[0]];if(!r)throw Error(`File Excel tidak memiliki sheet yang valid.`);let i=Sm.sheet_to_json(r,{header:1,raw:!1,blankrows:!0});if(!i.length)throw Error(`Sheet Excel kosong atau tidak dapat dibaca.`);let a=String(i[1]?.[0]??i[3]?.[2]??``).trim()||`Roster`,o=i[1]??[],s=o.findIndex(e=>{if(e==null||e===``)return!1;if(e instanceof Date)return!Number.isNaN(e.getTime());if(typeof e==`string`){let t=new Date(e);return!Number.isNaN(t.getTime())}return!Number.isNaN(new Date(String(e)).getTime())});if(s===-1)throw Error(`Baris tanggal tidak ditemukan pada sheet Excel. Struktur file tidak sesuai.`);let c=[],l=[];for(let e=s;e<o.length;e+=1){let t=o[e];if(t==null||t===``)continue;let n=Im(t);n&&c.push({key:Fm(n),label:Lm(n),dayName:Rm(n)})}if(!c.length)throw Error(`Tidak ada tanggal valid yang terdeteksi dari file roster.`);let u=[];for(let e=3;e<i.length;e+=1){let t=i[e];if(!t||t.length===0)continue;let n=String(t[0]??``).trim();if(!n)continue;let r=String(t[1]??``).trim(),a=String(t[2]??``).trim(),o={};c.forEach((e,r)=>{let i=Um(t[s+r]??``);i.unknown&&l.push(`Status tidak dikenal "${i.raw}" untuk ${n} pada ${e.label}.`),o[e.key]=i.status}),u.push({id:`${n}-${e}`,name:n,department:r,position:a,schedule:o})}if(!u.length)throw Error(`Tidak ada data personel yang tersedia. Struktur file tidak sesuai.`);return{filename:t,monthLabel:a,dates:c,personnel:u,warnings:l,periodLabel:`${c[0].label} - ${c[c.length-1].label}`}},Jm=()=>{if(!Q.activeRoster||!Q.activeRoster.dates.some(e=>e.key===Q.selectedDate)){Z.summaryGrid.innerHTML=``;return}let e=Wm(Q.selectedDate,Q.activeRoster),t=[{title:`PAGI`,value:e.pagi,tone:`pagi`},{title:`SIANG`,value:e.siang,tone:`siang`},{title:`Office Hour`,value:e.office,tone:`office`},{title:`Libur`,value:e.empty,tone:`empty`}];Z.summaryGrid.innerHTML=t.map(e=>`
+
+  <div id="activity-print-root" class="activity-print-root hidden"></div>
+`;var Am={loginScreen:document.querySelector(`#login-screen`),loginForm:document.querySelector(`#login-form`),usernameInput:document.querySelector(`#username-input`),passwordInput:document.querySelector(`#password-input`),loginSubmit:document.querySelector(`#login-submit`),togglePassword:document.querySelector(`#toggle-password`),loginError:document.querySelector(`#login-error`),dashboardShell:document.querySelector(`#dashboard-shell`),summaryGrid:document.querySelector(`#summary-grid`),dateSelect:document.querySelector(`#date-select`),searchInput:document.querySelector(`#search-input`),dailyPanel:document.querySelector(`#daily-panel`),monthlyPanel:document.querySelector(`#monthly-panel`),activityPanel:document.querySelector(`#activity-panel`),activityPrintRoot:document.querySelector(`#activity-print-root`),alertBox:document.querySelector(`#alert-box`),lastUpdatedValue:document.querySelector(`#last-updated-value`),activeFileValue:document.querySelector(`#active-file-value`),activePeriodValue:document.querySelector(`#active-period-value`),uploadTrigger:document.querySelector(`#upload-trigger`),resetRosterButton:document.querySelector(`#reset-roster-button`),fileInput:document.querySelector(`#file-input`),printButton:document.querySelector(`#print-button`),logoutButton:document.querySelector(`#logout-button`),modal:document.querySelector(`#upload-modal`),modalContent:document.querySelector(`#modal-content`),applyRosterButton:document.querySelector(`#apply-roster-button`)},jm=(e,t)=>{if(e==null)throw Error(`${t} is missing`);return e},Z={loginScreen:jm(Am.loginScreen,`loginScreen`),loginForm:jm(Am.loginForm,`loginForm`),usernameInput:jm(Am.usernameInput,`usernameInput`),passwordInput:jm(Am.passwordInput,`passwordInput`),loginSubmit:jm(Am.loginSubmit,`loginSubmit`),togglePassword:jm(Am.togglePassword,`togglePassword`),loginError:jm(Am.loginError,`loginError`),dashboardShell:jm(Am.dashboardShell,`dashboardShell`),summaryGrid:jm(Am.summaryGrid,`summaryGrid`),dateSelect:jm(Am.dateSelect,`dateSelect`),searchInput:jm(Am.searchInput,`searchInput`),dailyPanel:jm(Am.dailyPanel,`dailyPanel`),monthlyPanel:jm(Am.monthlyPanel,`monthlyPanel`),activityPanel:jm(Am.activityPanel,`activityPanel`),activityPrintRoot:jm(Am.activityPrintRoot,`activityPrintRoot`),alertBox:jm(Am.alertBox,`alertBox`),lastUpdatedValue:jm(Am.lastUpdatedValue,`lastUpdatedValue`),activeFileValue:jm(Am.activeFileValue,`activeFileValue`),activePeriodValue:jm(Am.activePeriodValue,`activePeriodValue`),uploadTrigger:jm(Am.uploadTrigger,`uploadTrigger`),resetRosterButton:jm(Am.resetRosterButton,`resetRosterButton`),fileInput:jm(Am.fileInput,`fileInput`),printButton:jm(Am.printButton,`printButton`),logoutButton:jm(Am.logoutButton,`logoutButton`),modal:jm(Am.modal,`modal`),modalContent:jm(Am.modalContent,`modalContent`),applyRosterButton:jm(Am.applyRosterButton,`applyRosterButton`)},Q={activeRoster:null,pendingRoster:null,selectedDate:``,defaultDateKey:``,searchTerm:``,activeTab:`daily`,lastUpdated:null,lastFileName:``,activityReports:[],activityMode:`list`,activityDraft:null,activitySelectedId:null,activityFilters:{date:``,person:``,shift:``,status:``}},Mm=`roster-dashboard.active-roster.v1`,Nm=`Asia/Jakarta`,Pm=[`Pagi`,`Siang`,`Office Hour`,`Libur`],Fm=[`Draft`,`Submitted`,`Reviewed`,`Closed`],Im=()=>typeof crypto<`u`&&`randomUUID`in crypto?crypto.randomUUID():`activity-${Date.now()}-${Math.random().toString(16).slice(2)}`,Lm=()=>({id:Im(),time:``,contact:``,location:``,overview:``,measures:``,result:``}),Rm=()=>({id:Im(),person:``,content:``}),zm=()=>({id:Im(),date:Jm(),personOnDuty:``,shift:`Pagi`,status:`Draft`,events:[Lm()],notifications:[Rm()],handover:{sparePartsStatus:``,handoverPerson:``,takeoverPerson:``,handoverMatters:``,handoverTime:``,takeoverTime:``,acknowledgedBy:``}}),Bm=e=>({...e,events:e.events.map(e=>({...e})),notifications:e.notifications.map(e=>({...e})),handover:{...e.handover}}),Vm=e=>e===`Submitted`?`submitted`:e===`Reviewed`?`reviewed`:e===`Closed`?`closed`:`draft`,Hm=[{id:`act-1001`,date:`2026-10-18`,personOnDuty:`Andi Pratama`,shift:`Pagi`,status:`Submitted`,events:[{id:`evt-1`,time:`06:40`,contact:`Monitoring Team`,location:`Server Room`,overview:`UPS battery alarm on main rack.`,measures:`Checked battery voltage and reset the alarm panel.`,result:`Normal after reset`},{id:`evt-2`,time:`09:25`,contact:`User Support`,location:`Network Hub`,overview:`Intermittent connection at branch office.`,measures:`Re-seated uplink cable and verified switch log.`,result:`Connection stable`}],notifications:[{id:`ntf-1`,person:`Helpdesk`,content:`Branch connectivity alert resolved after physical inspection.`},{id:`ntf-2`,person:`Network Team`,content:`UPS maintenance will be scheduled at the next planned window.`}],handover:{sparePartsStatus:`Yes`,handoverPerson:`Andi Pratama`,takeoverPerson:`Rina Damayanti`,handoverMatters:`Follow up alarm log and battery health review.`,handoverTime:`15:00`,takeoverTime:`07:00`,acknowledgedBy:`Rina Damayanti`}},{id:`act-1002`,date:`2026-10-19`,personOnDuty:`Rina Damayanti`,shift:`Siang`,status:`Reviewed`,events:[{id:`evt-3`,time:`13:05`,contact:`CCTV Team`,location:`Data Center Entrance`,overview:`Door sensor mismatch on access panel.`,measures:`Adjusted sensor threshold and confirmed door logs.`,result:`Operational`}],notifications:[{id:`ntf-3`,person:`Security Office`,content:`Access sensor was re-calibrated and noted for preventive check.`}],handover:{sparePartsStatus:`No`,handoverPerson:`Rina Damayanti`,takeoverPerson:`Budi Santoso`,handoverMatters:`CCTV sensor recalibration completed. Pending weekly preventive inspection.`,handoverTime:`22:00`,takeoverTime:`06:00`,acknowledgedBy:`Budi Santoso`}},{id:`act-1003`,date:`2026-10-20`,personOnDuty:`Budi Santoso`,shift:`Office Hour`,status:`Closed`,events:[{id:`evt-4`,time:`08:45`,contact:`Facility Team`,location:`Main Office`,overview:`Air-conditioning unit intermittently tripped.`,measures:`Verified breaker and restarted unit after checking load.`,result:`Stable and monitored`},{id:`evt-5`,time:`15:30`,contact:`IT Support`,location:`Workstation Zone`,overview:`Two workstations reported slow login.`,measures:`Checked local cache and restarted service queue.`,result:`Login latency resolved`}],notifications:[{id:`ntf-4`,person:`Facilities`,content:`AC trip report shared with maintenance for preventive inspection.`}],handover:{sparePartsStatus:`Yes`,handoverPerson:`Budi Santoso`,takeoverPerson:`Andi Pratama`,handoverMatters:`Two workstations were stabilized and AC breaker was reviewed.`,handoverTime:`17:00`,takeoverTime:`07:00`,acknowledgedBy:`Andi Pratama`}}];Q.activityReports=Hm,Q.activitySelectedId=Hm[0]?.id??null;var Um=(e,t)=>{let n=new Intl.DateTimeFormat(`en-CA`,{timeZone:t,year:`numeric`,month:`2-digit`,day:`2-digit`}).formatToParts(e),r=new Map;for(let e of n)e.type!==`literal`&&r.set(e.type,e.value);return{year:Number(r.get(`year`)??0),month:Number(r.get(`month`)??0),day:Number(r.get(`day`)??0)}},Wm=(e,t=Nm)=>{let{year:n,month:r,day:i}=Um(e,t);return`${n}-${String(r).padStart(2,`0`)}-${String(i).padStart(2,`0`)}`},Gm=e=>{if(e instanceof Date)return Number.isNaN(e.getTime())?null:e;let t=String(e??``).trim();if(!t)return null;if(/^\d{4}-\d{2}-\d{2}$/.test(t))return new Date(`${t}T00:00:00+07:00`);let n=new Date(t);return Number.isNaN(n.getTime())?null:n},Km=e=>new Intl.DateTimeFormat(`en-GB`,{timeZone:Nm,day:`2-digit`,month:`short`,year:`numeric`}).format(e),qm=e=>new Intl.DateTimeFormat(`en-US`,{timeZone:Nm,weekday:`long`}).format(e),Jm=(e=Nm)=>Wm(new Date,e),Ym=e=>{let t=Jm();return e.dates.some(e=>e.key===t)?t:e.dates[0]?.key??``},Xm=e=>e===``?`Libur`:e,Zm=e=>e===`PAGI`?`pagi`:e===`SIANG`?`siang`:e===`Office Hour`?`office`:`empty`,Qm=e=>{let t=String(e??``).trim();if(!t)return{status:``,unknown:!1,raw:``};let n=t.replace(/\s+/g,` `),r=n.toUpperCase();return r===`PAGI`?{status:`PAGI`,unknown:!1,raw:n}:r===`SIANG`?{status:`SIANG`,unknown:!1,raw:n}:r===`OFFICE HOUR`?{status:`Office Hour`,unknown:!1,raw:n}:{status:``,unknown:!0,raw:n}},$m=(e,t)=>{let n={pagi:0,siang:0,office:0,empty:0};return t.personnel.forEach(t=>{let r=t.schedule[e]??``;r===`PAGI`?n.pagi+=1:r===`SIANG`?n.siang+=1:r===`Office Hour`?n.office+=1:n.empty+=1}),n},eh=e=>{let t={pagi:0,siang:0,office:0,empty:0,total:e.personnel.length};return e.dates.forEach(n=>{let r=$m(n.key,e);t.pagi+=r.pagi,t.siang+=r.siang,t.office+=r.office,t.empty+=r.empty}),t},th=(e,t)=>{e?(Z.alertBox.classList.remove(`hidden`),Z.alertBox.className=`alert-box ${t}`,Z.alertBox.textContent=e):(Z.alertBox.classList.add(`hidden`),Z.alertBox.textContent=``)},nh=(e,t)=>{let n=nm(e,{type:`array`,cellDates:!0}),r=n.Sheets[n.SheetNames[0]];if(!r)throw Error(`File Excel tidak memiliki sheet yang valid.`);let i=Sm.sheet_to_json(r,{header:1,raw:!1,blankrows:!0});if(!i.length)throw Error(`Sheet Excel kosong atau tidak dapat dibaca.`);let a=String(i[1]?.[0]??i[3]?.[2]??``).trim()||`Roster`,o=i[1]??[],s=o.findIndex(e=>{if(e==null||e===``)return!1;if(e instanceof Date)return!Number.isNaN(e.getTime());if(typeof e==`string`){let t=new Date(e);return!Number.isNaN(t.getTime())}return!Number.isNaN(new Date(String(e)).getTime())});if(s===-1)throw Error(`Baris tanggal tidak ditemukan pada sheet Excel. Struktur file tidak sesuai.`);let c=[],l=[];for(let e=s;e<o.length;e+=1){let t=o[e];if(t==null||t===``)continue;let n=Gm(t);n&&c.push({key:Wm(n),label:Km(n),dayName:qm(n)})}if(!c.length)throw Error(`Tidak ada tanggal valid yang terdeteksi dari file roster.`);let u=[];for(let e=3;e<i.length;e+=1){let t=i[e];if(!t||t.length===0)continue;let n=String(t[0]??``).trim();if(!n)continue;let r=String(t[1]??``).trim(),a=String(t[2]??``).trim(),o={};c.forEach((e,r)=>{let i=Qm(t[s+r]??``);i.unknown&&l.push(`Status tidak dikenal "${i.raw}" untuk ${n} pada ${e.label}.`),o[e.key]=i.status}),u.push({id:`${n}-${e}`,name:n,department:r,position:a,schedule:o})}if(!u.length)throw Error(`Tidak ada data personel yang tersedia. Struktur file tidak sesuai.`);return{filename:t,monthLabel:a,dates:c,personnel:u,warnings:l,periodLabel:`${c[0].label} - ${c[c.length-1].label}`}},rh=()=>{if(!Q.activeRoster||!Q.activeRoster.dates.some(e=>e.key===Q.selectedDate)){Z.summaryGrid.innerHTML=``;return}let e=$m(Q.selectedDate,Q.activeRoster),t=[{title:`PAGI`,value:e.pagi,tone:`pagi`},{title:`SIANG`,value:e.siang,tone:`siang`},{title:`Office Hour`,value:e.office,tone:`office`},{title:`Libur`,value:e.empty,tone:`empty`}];Z.summaryGrid.innerHTML=t.map(e=>`
         <div class="summary-card ${e.tone}">
           <span class="summary-title">${e.title}</span>
           <strong class="summary-value">${e.value}</strong>
         </div>
-      `).join(``)},Ym=()=>{Q.activeRoster?((!Q.defaultDateKey||!Q.activeRoster.dates.some(e=>e.key===Q.defaultDateKey))&&(Q.defaultDateKey=Bm(Q.activeRoster)),(!Q.selectedDate||!Q.activeRoster.dates.some(e=>e.key===Q.selectedDate))&&(Q.selectedDate=Q.defaultDateKey||Q.activeRoster.dates[0]?.key||``),Z.dateSelect.innerHTML=Q.activeRoster.dates.map(e=>`<option value="${e.key}">${e.label} • ${e.dayName}</option>`).join(``),Z.dateSelect.value=Q.selectedDate):Z.dateSelect.innerHTML=``},Xm=()=>{if(!Q.activeRoster){Z.dailyPanel.innerHTML=`<div class="empty-state">Belum ada roster aktif.</div>`;return}let e=Q.activeRoster.dates.find(e=>e.key===Q.selectedDate);if(!e){Z.dailyPanel.innerHTML=`<div class="empty-state">Data roster untuk tanggal ini belum tersedia.</div>`;return}let t=Q.activeRoster.personnel.filter(e=>{let t=Q.searchTerm.trim().toLowerCase();return!t||e.name.toLowerCase().includes(t)});if(!t.length){Z.dailyPanel.innerHTML=`<div class="empty-state">Tidak ada personel yang cocok dengan pencarian.</div>`;return}let n=e.label;Z.dailyPanel.innerHTML=`
+      `).join(``)},ih=()=>{Q.activeRoster?((!Q.defaultDateKey||!Q.activeRoster.dates.some(e=>e.key===Q.defaultDateKey))&&(Q.defaultDateKey=Ym(Q.activeRoster)),(!Q.selectedDate||!Q.activeRoster.dates.some(e=>e.key===Q.selectedDate))&&(Q.selectedDate=Q.defaultDateKey||Q.activeRoster.dates[0]?.key||``),Z.dateSelect.innerHTML=Q.activeRoster.dates.map(e=>`<option value="${e.key}">${e.label} • ${e.dayName}</option>`).join(``),Z.dateSelect.value=Q.selectedDate):Z.dateSelect.innerHTML=``},ah=()=>{if(!Q.activeRoster){Z.dailyPanel.innerHTML=`<div class="empty-state">Belum ada roster aktif.</div>`;return}let e=Q.activeRoster.dates.find(e=>e.key===Q.selectedDate);if(!e){Z.dailyPanel.innerHTML=`<div class="empty-state">Data roster untuk tanggal ini belum tersedia.</div>`;return}let t=Q.activeRoster.personnel.filter(e=>{let t=Q.searchTerm.trim().toLowerCase();return!t||e.name.toLowerCase().includes(t)});if(!t.length){Z.dailyPanel.innerHTML=`<div class="empty-state">Tidak ada personel yang cocok dengan pencarian.</div>`;return}let n=e.label;Z.dailyPanel.innerHTML=`
     <div class="panel-header">
       <div>
         <p class="panel-kicker">Roster Harian</p>
@@ -231,7 +235,7 @@
                   <h3>${e.name}</h3>
                   <p>${e.department} • ${e.position}</p>
                 </div>
-                <span class="status-badge ${Hm(t)}">${Vm(t)}</span>
+                <span class="status-badge ${Zm(t)}">${Xm(t)}</span>
               </div>
               <div class="person-meta-row">
                 <span>Hari</span>
@@ -239,12 +243,12 @@
               </div>
               <div class="person-meta-row">
                 <span>Status</span>
-                <strong>${Vm(t)}</strong>
+                <strong>${Xm(t)}</strong>
               </div>
             </article>
           `}).join(``)}
     </div>
-  `},Zm=()=>{if(!Q.activeRoster){Z.monthlyPanel.innerHTML=`<div class="empty-state">Belum ada roster aktif.</div>`;return}let e=Q.activeRoster.personnel.filter(e=>{let t=Q.searchTerm.trim().toLowerCase();return!t||e.name.toLowerCase().includes(t)});if(!e.length){Z.monthlyPanel.innerHTML=`<div class="empty-state">Tidak ada personel yang cocok dengan pencarian.</div>`;return}let t=Q.activeRoster.dates.map(e=>`<th><span>${e.dayName}</span><small>${e.label}</small></th>`).join(``),n=Gm(Q.activeRoster);Z.monthlyPanel.innerHTML=`
+  `},oh=()=>{if(!Q.activeRoster){Z.monthlyPanel.innerHTML=`<div class="empty-state">Belum ada roster aktif.</div>`;return}let e=Q.activeRoster.personnel.filter(e=>{let t=Q.searchTerm.trim().toLowerCase();return!t||e.name.toLowerCase().includes(t)});if(!e.length){Z.monthlyPanel.innerHTML=`<div class="empty-state">Tidak ada personel yang cocok dengan pencarian.</div>`;return}let t=Q.activeRoster.dates.map(e=>`<th><span>${e.dayName}</span><small>${e.label}</small></th>`).join(``),n=eh(Q.activeRoster);Z.monthlyPanel.innerHTML=`
     <div class="report-header">
       <div>
         <p class="panel-kicker">Roster Bulanan</p>
@@ -296,7 +300,7 @@
           </tr>
         </thead>
         <tbody>
-          ${e.map(e=>{let t=Q.activeRoster.dates.map(t=>{let n=e.schedule[t.key]??``;return`<td>${n?`<span class="table-status ${Hm(n)}">${n}</span>`:`<span class="empty-pill">Libur</span>`}</td>`}).join(``);return`
+          ${e.map(e=>{let t=Q.activeRoster.dates.map(t=>{let n=e.schedule[t.key]??``;return`<td>${n?`<span class="table-status ${Zm(n)}">${n}</span>`:`<span class="empty-pill">Libur</span>`}</td>`}).join(``);return`
                 <tr>
                   <td class="sticky-col person-cell"><strong>${e.name}</strong></td>
                   <td>${e.department}</td>
@@ -307,7 +311,433 @@
         </tbody>
       </table>
     </div>
-  `},Qm=()=>{Z.lastUpdatedValue.textContent=Q.lastUpdated?new Intl.DateTimeFormat(`id-ID`,{dateStyle:`medium`,timeStyle:`short`}).format(Q.lastUpdated):`--`,Z.activeFileValue.textContent=Q.lastFileName||Q.activeRoster?.filename||`--`,Z.activePeriodValue.textContent=Q.activeRoster?.periodLabel||`--`},$m=()=>{let e=Om(),t=Dm();!e&&t===`dashboard`&&km(`login`),e&&t===`login`&&km(`dashboard`),Z.loginScreen.classList.toggle(`hidden`,e),Z.dashboardShell.classList.toggle(`hidden`,!e)},eh=e=>{e.preventDefault();let t=Z.usernameInput.value.trim(),n=Z.passwordInput.value,r=Z.loginSubmit,i=r.querySelector(`.login-button-label`),a=Z.loginError;i&&(!t||!n?(a.textContent=`Username dan password wajib diisi.`,a.classList.add(`visible`)):t!==Tm||n!==Em?(a.textContent=`Username atau password salah. Silakan coba lagi.`,a.classList.add(`visible`)):(r.disabled=!0,i.textContent=`Memproses...`,a.textContent=``,a.classList.remove(`visible`),window.setTimeout(()=>{sessionStorage.setItem(wm,`true`),km(`dashboard`),$m(),r.disabled=!1,i.textContent=`Login`,Z.usernameInput.value=``,Z.passwordInput.value=``,Z.passwordInput.type=`password`,Z.togglePassword.textContent=`Show`},350)))},th=()=>{sessionStorage.removeItem(wm),Km(`Anda telah keluar dari sesi.`,`success`),km(`login`),$m()},nh=()=>{if(!Q.activeRoster||!Q.defaultDateKey)return;let e=zm(),t=Q.activeRoster.dates.map(e=>e.key);Q.selectedDate===Q.defaultDateKey&&t.includes(e)&&Q.defaultDateKey!==e&&(Q.defaultDateKey=e,Q.selectedDate=e)},rh=()=>{Z.resetRosterButton.disabled=!Q.activeRoster,Q.activeRoster?((!Q.defaultDateKey||!Q.activeRoster.dates.some(e=>e.key===Q.defaultDateKey))&&(Q.defaultDateKey=Bm(Q.activeRoster)),(!Q.selectedDate||!Q.activeRoster.dates.some(e=>e.key===Q.selectedDate))&&(Q.selectedDate=Q.defaultDateKey),Ym(),Jm(),Xm(),Zm(),Qm(),document.querySelectorAll(`.nav-button`).forEach(e=>{let t=e.dataset.tab===Q.activeTab;e.classList.toggle(`is-active`,t)}),Z.dailyPanel.classList.toggle(`hidden`,Q.activeTab!==`daily`),Z.monthlyPanel.classList.toggle(`hidden`,Q.activeTab!==`monthly`)):(Z.summaryGrid.innerHTML=``,Z.dailyPanel.innerHTML=`<div class="empty-state">Belum ada data roster. Silakan upload file Excel manual.</div>`,Z.monthlyPanel.innerHTML=`<div class="empty-state">Belum ada data roster. Silakan upload file Excel manual.</div>`,Z.lastUpdatedValue.textContent=`--`,Z.activeFileValue.textContent=`--`,Z.activePeriodValue.textContent=`--`)},ih=e=>{Q.pendingRoster=e;let t=e.warnings.length?`<ul class="warning-list">${e.warnings.map(e=>`<li>${e}</li>`).join(``)}</ul>`:`<p class="success-note">Tidak ada peringatan status yang ditemukan.</p>`;Z.modalContent.innerHTML=`
+  `},sh=e=>{if(!e)return`--`;let t=Gm(e);return t?new Intl.DateTimeFormat(`en-GB`,{day:`2-digit`,month:`short`,year:`numeric`}).format(t):e},ch=()=>{let{date:e,person:t,shift:n,status:r}=Q.activityFilters;return Q.activityReports.filter(i=>{let a=!e||i.date===e,o=!t||i.personOnDuty.toLowerCase().includes(t.toLowerCase()),s=!n||i.shift===n,c=!r||i.status===r;return a&&o&&s&&c})},lh=()=>{let e=ch();return e.length?`
+    <div class="panel-header">
+      <div>
+        <p class="panel-kicker">Daily Activity</p>
+        <h2>Daily Activity</h2>
+      </div>
+      <button type="button" class="primary-button" data-activity-action="create">Create New Report</button>
+    </div>
+
+    <div class="activity-filters">
+      <label class="field-wrap compact-field">
+        <span>Report Date</span>
+        <input type="date" data-activity-filter="date" value="${Q.activityFilters.date}" />
+      </label>
+      <label class="field-wrap compact-field">
+        <span>Personnel</span>
+        <input type="search" data-activity-filter="person" value="${Q.activityFilters.person}" placeholder="Search person on duty" />
+      </label>
+      <label class="field-wrap compact-field">
+        <span>Shift</span>
+        <select data-activity-filter="shift">
+          <option value="">All</option>
+          ${Pm.map(e=>`<option value="${e}" ${Q.activityFilters.shift===e?`selected`:``}>${e}</option>`).join(``)}
+        </select>
+      </label>
+      <label class="field-wrap compact-field">
+        <span>Status</span>
+        <select data-activity-filter="status">
+          <option value="">All</option>
+          ${Fm.map(e=>`<option value="${e}" ${Q.activityFilters.status===e?`selected`:``}>${e}</option>`).join(``)}
+        </select>
+      </label>
+    </div>
+
+    <div class="table-scroll">
+      <table class="daily-activity-table">
+        <thead>
+          <tr>
+            <th>Report Date</th>
+            <th>Person on Duty</th>
+            <th>Shift</th>
+            <th>Fault/Event Count</th>
+            <th>Information Notification Count</th>
+            <th>Handover Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${e.map(e=>`
+                <tr>
+                  <td>${sh(e.date)}</td>
+                  <td>${e.personOnDuty||`—`}</td>
+                  <td><span class="shift-badge ${e.shift.toLowerCase().replace(/\s+/g,`-`)}">${e.shift}</span></td>
+                  <td>${e.events.filter(e=>Object.values(e).some(e=>typeof e==`string`&&e.trim().length>0)).length}</td>
+                  <td>${e.notifications.filter(e=>e.person.trim()||e.content.trim()).length}</td>
+                  <td><span class="activity-status-badge ${Vm(e.status)}">${e.status}</span></td>
+                  <td>
+                    <div class="activity-actions">
+                      <button type="button" class="secondary-button compact-button" data-activity-action="open" data-report-id="${e.id}">Open</button>
+                      <button type="button" class="secondary-button compact-button" data-activity-action="edit" data-report-id="${e.id}">Edit</button>
+                      <button type="button" class="secondary-button compact-button" data-activity-action="print" data-report-id="${e.id}">Print</button>
+                      <button type="button" class="danger-button compact-button" data-activity-action="delete" data-report-id="${e.id}">Remove</button>
+                    </div>
+                  </td>
+                </tr>
+              `).join(``)}
+        </tbody>
+      </table>
+    </div>
+  `:`
+      <div class="panel-header">
+        <div>
+          <p class="panel-kicker">Daily Activity</p>
+          <h2>Daily Activity</h2>
+        </div>
+        <button type="button" class="primary-button" data-activity-action="create">Create New Report</button>
+      </div>
+      <div class="empty-state">Tidak ada laporan yang sesuai dengan filter saat ini.</div>
+    `},uh=()=>{let e=Q.activityReports.find(e=>e.id===Q.activitySelectedId)??null;if(!e)return`<div class="empty-state">Report not found.</div>`;let t=e.events.filter(e=>[e.time,e.contact,e.location,e.overview,e.measures,e.result].some(e=>e.trim().length>0)),n=e.notifications.filter(e=>e.person.trim().length>0||e.content.trim().length>0);return`
+    <div class="panel-header">
+      <div>
+        <p class="panel-kicker">Daily Activity</p>
+        <h2>Report Detail</h2>
+      </div>
+      <div class="inline-actions">
+        <button type="button" class="secondary-button" data-activity-action="list">Back to Reports</button>
+        <button type="button" class="secondary-button" data-activity-action="edit" data-report-id="${e.id}">Edit</button>
+        <button type="button" class="primary-button" data-activity-action="print" data-report-id="${e.id}">Print Report</button>
+      </div>
+    </div>
+
+    <div class="activity-summary-grid">
+      <div class="activity-summary-box"><span>Date</span><strong>${sh(e.date)}</strong></div>
+      <div class="activity-summary-box"><span>Person on Duty</span><strong>${e.personOnDuty||`—`}</strong></div>
+      <div class="activity-summary-box"><span>Shift</span><strong>${e.shift}</strong></div>
+      <div class="activity-summary-box"><span>Handover Status</span><strong>${e.status}</strong></div>
+    </div>
+
+    <div class="activity-card">
+      <h3>Fault & Event Registration</h3>
+      <div class="table-scroll">
+        <table class="daily-activity-table">
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>Time</th>
+              <th>Report Person / Team (Contact)</th>
+              <th>Event Location</th>
+              <th>Fault / Event Overview</th>
+              <th>Disposal Measures</th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${t.length?t.map((e,t)=>`
+                      <tr>
+                        <td>${t+1}</td>
+                        <td>${e.time||`—`}</td>
+                        <td>${e.contact||`—`}</td>
+                        <td>${e.location||`—`}</td>
+                        <td>${e.overview||`—`}</td>
+                        <td>${e.measures||`—`}</td>
+                        <td>${e.result||`—`}</td>
+                      </tr>
+                    `).join(``):`<tr><td colspan="7">No fault and event entry recorded.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="activity-card">
+      <h3>Information Notification Record</h3>
+      <div class="table-scroll">
+        <table class="daily-activity-table">
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>Notifying Person / Team</th>
+              <th>Content</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${n.length?n.map((e,t)=>`
+                      <tr>
+                        <td>${t+1}</td>
+                        <td>${e.person||`—`}</td>
+                        <td>${e.content||`—`}</td>
+                      </tr>
+                    `).join(``):`<tr><td colspan="3">No notification record entered.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="handover-overview">
+      <div class="handover-box">
+        <h3>Handover Record</h3>
+        <div class="handover-row"><span>Are spare parts, tools and auxiliary materials complete?</span><strong>${e.handover.sparePartsStatus||`—`}</strong></div>
+        <div class="handover-row"><span>Handover Matters</span><p>${e.handover.handoverMatters||`—`}</p></div>
+      </div>
+      <div class="handover-box">
+        <div class="handover-grid">
+          <div><label>Handover Person</label><strong>${e.handover.handoverPerson||`—`}</strong></div>
+          <div><label>Time</label><strong>${e.handover.handoverTime||`—`}</strong></div>
+          <div><label>Takeover Person</label><strong>${e.handover.takeoverPerson||`—`}</strong></div>
+          <div><label>Time</label><strong>${e.handover.takeoverTime||`—`}</strong></div>
+          <div class="acknowledged-field"><label>Acknowledged by</label><strong>${e.handover.acknowledgedBy||`—`}</strong></div>
+        </div>
+      </div>
+    </div>
+  `},dh=()=>{let e=Q.activityDraft;return e?`
+    <div class="panel-header">
+      <div>
+        <p class="panel-kicker">Daily Activity</p>
+        <h2>${e.id?`Edit Report`:`New Report`}</h2>
+      </div>
+      <div class="inline-actions">
+        <button type="button" class="secondary-button" data-activity-action="list">Back to Reports</button>
+        <button type="button" class="primary-button" data-activity-action="save">Save Report</button>
+      </div>
+    </div>
+
+    <form id="daily-activity-form" class="daily-activity-form" novalidate>
+      <div class="activity-form-grid">
+        <label class="field-wrap">
+          <span>Date</span>
+          <input type="date" data-activity-scope="report" data-field="date" value="${e.date}" required />
+        </label>
+        <label class="field-wrap">
+          <span>Person On Duty</span>
+          <input type="text" data-activity-scope="report" data-field="personOnDuty" value="${e.personOnDuty}" placeholder="Name of person on duty" required />
+        </label>
+        <label class="field-wrap">
+          <span>Shift</span>
+          <select data-activity-scope="report" data-field="shift">
+            ${Pm.map(t=>`<option value="${t}" ${e.shift===t?`selected`:``}>${t}</option>`).join(``)}
+          </select>
+        </label>
+      </div>
+
+      <div class="activity-card">
+        <div class="activity-card-header">
+          <h3>Fault & Event Registration</h3>
+          <button type="button" class="secondary-button compact-button" data-activity-action="add-event">Add Event</button>
+        </div>
+        <div class="table-scroll">
+          <table class="daily-activity-table">
+            <thead>
+              <tr>
+                <th>No.</th>
+                <th>Time</th>
+                <th>Report Person / Team (Contact)</th>
+                <th>Event Location</th>
+                <th>Fault / Event Overview</th>
+                <th>Disposal Measures</th>
+                <th>Result</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${e.events.map((e,t)=>`
+                    <tr>
+                      <td>${t+1}</td>
+                      <td><input type="time" data-activity-scope="event" data-event-id="${e.id}" data-field="time" value="${e.time}" /></td>
+                      <td><input type="text" data-activity-scope="event" data-event-id="${e.id}" data-field="contact" value="${e.contact}" /></td>
+                      <td><input type="text" data-activity-scope="event" data-event-id="${e.id}" data-field="location" value="${e.location}" /></td>
+                      <td><textarea data-activity-scope="event" data-event-id="${e.id}" data-field="overview" rows="2">${e.overview}</textarea></td>
+                      <td><textarea data-activity-scope="event" data-event-id="${e.id}" data-field="measures" rows="2">${e.measures}</textarea></td>
+                      <td><textarea data-activity-scope="event" data-event-id="${e.id}" data-field="result" rows="2">${e.result}</textarea></td>
+                      <td><button type="button" class="danger-button" data-activity-action="remove-event" data-event-id="${e.id}">Remove</button></td>
+                    </tr>
+                  `).join(``)}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="activity-card">
+        <div class="activity-card-header">
+          <h3>Information Notification Record</h3>
+          <button type="button" class="secondary-button compact-button" data-activity-action="add-notification">Add Notification</button>
+        </div>
+        <div class="table-scroll">
+          <table class="daily-activity-table">
+            <thead>
+              <tr>
+                <th>No.</th>
+                <th>Notifying Person / Team</th>
+                <th>Content</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${e.notifications.map((e,t)=>`
+                    <tr>
+                      <td>${t+1}</td>
+                      <td><input type="text" data-activity-scope="notification" data-notification-id="${e.id}" data-field="person" value="${e.person}" /></td>
+                      <td><textarea data-activity-scope="notification" data-notification-id="${e.id}" data-field="content" rows="3">${e.content}</textarea></td>
+                      <td><button type="button" class="danger-button" data-activity-action="remove-notification" data-notification-id="${e.id}">Remove</button></td>
+                    </tr>
+                  `).join(``)}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="handover-form-layout">
+        <div class="handover-panel">
+          <h3>Handover Record</h3>
+          <div class="handover-question">
+            <span>Are spare parts, tools and auxiliary materials complete?</span>
+            <label><input type="radio" data-activity-scope="handover" data-field="sparePartsStatus" name="spare-parts-status" value="Yes" ${e.handover.sparePartsStatus===`Yes`?`checked`:``} /> Yes</label>
+            <label><input type="radio" data-activity-scope="handover" data-field="sparePartsStatus" name="spare-parts-status" value="No" ${e.handover.sparePartsStatus===`No`?`checked`:``} /> No</label>
+          </div>
+          <label class="field-wrap full-width">
+            <span>Handover Matters</span>
+            <textarea data-activity-scope="handover" data-field="handoverMatters" rows="4">${e.handover.handoverMatters}</textarea>
+          </label>
+        </div>
+
+        <div class="handover-panel">
+          <div class="handover-grid-form">
+            <label class="field-wrap">
+              <span>Handover Person</span>
+              <input type="text" data-activity-scope="handover" data-field="handoverPerson" value="${e.handover.handoverPerson}" />
+            </label>
+            <label class="field-wrap">
+              <span>Handover Person Time</span>
+              <input type="time" data-activity-scope="handover" data-field="handoverTime" value="${e.handover.handoverTime}" />
+            </label>
+            <label class="field-wrap">
+              <span>Takeover Person</span>
+              <input type="text" data-activity-scope="handover" data-field="takeoverPerson" value="${e.handover.takeoverPerson}" />
+            </label>
+            <label class="field-wrap">
+              <span>Takeover Person Time</span>
+              <input type="time" data-activity-scope="handover" data-field="takeoverTime" value="${e.handover.takeoverTime}" />
+            </label>
+            <label class="field-wrap full-width">
+              <span>Acknowledged by</span>
+              <input type="text" data-activity-scope="handover" data-field="acknowledgedBy" value="${e.handover.acknowledgedBy}" />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="activity-notes">
+        <p>1. "Fault and Event Registration" records the failure and event found in each shift.</p>
+        <p>2. "Information Notification Record" records the information system-related call records received by each shift.</p>
+      </div>
+    </form>
+  `:`<div class="empty-state">No report draft available.</div>`},fh=()=>{Q.activeTab===`activity`?(Z.activityPanel.classList.remove(`hidden`),Q.activityMode===`form`?Z.activityPanel.innerHTML=dh():Q.activityMode===`view`?Z.activityPanel.innerHTML=uh():Z.activityPanel.innerHTML=lh()):Z.activityPanel.classList.add(`hidden`)},ph=e=>{let t=e.events.filter(e=>[e.time,e.contact,e.location,e.overview,e.measures,e.result].some(e=>e.trim().length>0)),n=e.notifications.filter(e=>e.person.trim().length>0||e.content.trim().length>0),r=t.length?t.map((e,t)=>`
+            <tr>
+              <td>${t+1}</td>
+              <td>${e.time||``}</td>
+              <td>${e.contact||``}</td>
+              <td>${e.location||``}</td>
+              <td>${e.overview||``}</td>
+              <td>${e.measures||``}</td>
+              <td>${e.result||``}</td>
+            </tr>
+          `).join(``):`<tr><td colspan="7"> </td></tr>`,i=n.length?n.map((e,t)=>`
+            <tr>
+              <td>${t+1}</td>
+              <td>${e.person||``}</td>
+              <td>${e.content||``}</td>
+            </tr>
+          `).join(``):`<tr><td colspan="3"> </td></tr>`;Z.activityPrintRoot.classList.remove(`hidden`),Z.activityPrintRoot.innerHTML=`
+    <div class="daily-activity-print-sheet">
+      <h1>Daily Operation and Maintenance<br />Shift Handover Records</h1>
+
+      <div class="print-header-grid">
+        <div class="print-field">
+          <span>Date</span>
+          <strong>${sh(e.date)}</strong>
+        </div>
+        <div class="print-field">
+          <span>Person On Duty</span>
+          <strong>${e.personOnDuty||``}</strong>
+        </div>
+        <div class="print-field">
+          <span>Shift</span>
+          <strong>${e.shift||``}</strong>
+        </div>
+      </div>
+
+      <section class="print-section">
+        <h2>Fault & Event Registration</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>Time</th>
+              <th>Report Person / Team (Contact)</th>
+              <th>Event Location</th>
+              <th>Fault / Event Overview</th>
+              <th>Disposal Measures</th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody>${r}</tbody>
+        </table>
+      </section>
+
+      <section class="print-section">
+        <h2>Information Notification Record</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>Notifying Person / Team</th>
+              <th>Content</th>
+            </tr>
+          </thead>
+          <tbody>${i}</tbody>
+        </table>
+      </section>
+
+      <section class="print-section handover-print-layout">
+        <div class="handover-left-box">
+          <div class="handover-yes-no">
+            <span>Are spare parts, tools and auxiliary materials complete?</span>
+            <div class="print-radio-row">
+              <span class="print-radio ${e.handover.sparePartsStatus===`Yes`?`selected`:``}">Yes</span>
+              <span class="print-radio ${e.handover.sparePartsStatus===`No`?`selected`:``}">No</span>
+            </div>
+          </div>
+          <div class="handover-matters-box">
+            <span>Handover Matters</span>
+            <p>${e.handover.handoverMatters||``}</p>
+          </div>
+        </div>
+
+        <div class="handover-right-box">
+          <div class="handover-inline-grid">
+            <div class="print-field small-field">
+              <span>Handover Person</span>
+              <strong>${e.handover.handoverPerson||``}</strong>
+            </div>
+            <div class="print-field small-field">
+              <span>Time</span>
+              <strong>${e.handover.handoverTime||``}</strong>
+            </div>
+          </div>
+          <div class="handover-inline-grid">
+            <div class="print-field small-field">
+              <span>Takeover Person</span>
+              <strong>${e.handover.takeoverPerson||``}</strong>
+            </div>
+            <div class="print-field small-field">
+              <span>Time</span>
+              <strong>${e.handover.takeoverTime||``}</strong>
+            </div>
+          </div>
+          <div class="print-field small-field acknowledged-box">
+            <span>Acknowledged by</span>
+            <strong>${e.handover.acknowledgedBy||``}</strong>
+          </div>
+        </div>
+      </section>
+
+      <div class="print-notes">
+        <p>1. "Fault and Event Registration" records the failure and event found in each shift.</p>
+        <p>2. "Information Notification Record" records the information system-related call records received by each shift.</p>
+      </div>
+    </div>
+  `},mh=e=>{let t=Q.activityReports.find(t=>t.id===e);t&&(Q.activitySelectedId=e,Q.activityMode=`view`,fh(),ph(t),window.print())},hh=()=>{Z.lastUpdatedValue.textContent=Q.lastUpdated?new Intl.DateTimeFormat(`id-ID`,{dateStyle:`medium`,timeStyle:`short`}).format(Q.lastUpdated):`--`,Z.activeFileValue.textContent=Q.lastFileName||Q.activeRoster?.filename||`--`,Z.activePeriodValue.textContent=Q.activeRoster?.periodLabel||`--`},gh=()=>{let e=Om(),t=Dm();!e&&t===`dashboard`&&km(`login`),e&&t===`login`&&km(`dashboard`),Z.loginScreen.classList.toggle(`hidden`,e),Z.dashboardShell.classList.toggle(`hidden`,!e)},_h=e=>{e.preventDefault();let t=Z.usernameInput.value.trim(),n=Z.passwordInput.value,r=Z.loginSubmit,i=r.querySelector(`.login-button-label`),a=Z.loginError;i&&(!t||!n?(a.textContent=`Username dan password wajib diisi.`,a.classList.add(`visible`)):t!==Tm||n!==Em?(a.textContent=`Username atau password salah. Silakan coba lagi.`,a.classList.add(`visible`)):(r.disabled=!0,i.textContent=`Memproses...`,a.textContent=``,a.classList.remove(`visible`),window.setTimeout(()=>{sessionStorage.setItem(wm,`true`),km(`dashboard`),gh(),r.disabled=!1,i.textContent=`Login`,Z.usernameInput.value=``,Z.passwordInput.value=``,Z.passwordInput.type=`password`,Z.togglePassword.textContent=`Show`},350)))},vh=()=>{sessionStorage.removeItem(wm),th(`Anda telah keluar dari sesi.`,`success`),km(`login`),gh()},yh=()=>{if(!Q.activeRoster||!Q.defaultDateKey)return;let e=Jm(),t=Q.activeRoster.dates.map(e=>e.key);Q.selectedDate===Q.defaultDateKey&&t.includes(e)&&Q.defaultDateKey!==e&&(Q.defaultDateKey=e,Q.selectedDate=e)},bh=()=>{if(!Q.activityDraft)return;let e=Q.activityDraft,t=e.date.trim(),n=e.personOnDuty.trim();if(!t||!n){th(`Report date and person on duty are required before saving.`,`error`);return}let r={...e,date:t,personOnDuty:n,shift:e.shift,status:e.status,events:e.events.map(e=>({...e,time:e.time.trim(),contact:e.contact.trim(),location:e.location.trim(),overview:e.overview.trim(),measures:e.measures.trim(),result:e.result.trim()})).filter(e=>Object.values(e).some(e=>e.trim().length>0)),notifications:e.notifications.map(e=>({...e,person:e.person.trim(),content:e.content.trim()})).filter(e=>e.person.trim().length>0||e.content.trim().length>0),handover:{...e.handover,handoverPerson:e.handover.handoverPerson.trim(),takeoverPerson:e.handover.takeoverPerson.trim(),handoverMatters:e.handover.handoverMatters.trim(),handoverTime:e.handover.handoverTime.trim(),takeoverTime:e.handover.takeoverTime.trim(),acknowledgedBy:e.handover.acknowledgedBy.trim()}},i=Q.activityReports.findIndex(e=>e.id===r.id);i>=0?Q.activityReports.splice(i,1,r):Q.activityReports.unshift(r),Q.activitySelectedId=r.id,Q.activityDraft=null,Q.activityMode=`list`,th(`Daily Activity report saved successfully.`,`success`),Sh()},xh=e=>{if(!Q.activityDraft)return;let t=e.dataset.field,n=e.dataset.activityScope;if(t&&n){if(n===`report`)t===`date`&&(Q.activityDraft.date=e.value),t===`personOnDuty`&&(Q.activityDraft.personOnDuty=e.value),t===`shift`&&(Q.activityDraft.shift=e.value);else if(n===`event`){let n=e.dataset.eventId;if(!n)return;let r=Q.activityDraft.events.find(e=>e.id===n);if(!r)return;t===`time`&&(r.time=e.value),t===`contact`&&(r.contact=e.value),t===`location`&&(r.location=e.value),t===`overview`&&(r.overview=e.value),t===`measures`&&(r.measures=e.value),t===`result`&&(r.result=e.value)}else if(n===`notification`){let n=e.dataset.notificationId;if(!n)return;let r=Q.activityDraft.notifications.find(e=>e.id===n);if(!r)return;t===`person`&&(r.person=e.value),t===`content`&&(r.content=e.value)}else n===`handover`&&(t===`sparePartsStatus`&&(Q.activityDraft.handover.sparePartsStatus=e.value),t===`handoverPerson`&&(Q.activityDraft.handover.handoverPerson=e.value),t===`takeoverPerson`&&(Q.activityDraft.handover.takeoverPerson=e.value),t===`handoverMatters`&&(Q.activityDraft.handover.handoverMatters=e.value),t===`handoverTime`&&(Q.activityDraft.handover.handoverTime=e.value),t===`takeoverTime`&&(Q.activityDraft.handover.takeoverTime=e.value),t===`acknowledgedBy`&&(Q.activityDraft.handover.acknowledgedBy=e.value))}},Sh=()=>{Z.resetRosterButton.disabled=!Q.activeRoster,Q.activeRoster?((!Q.defaultDateKey||!Q.activeRoster.dates.some(e=>e.key===Q.defaultDateKey))&&(Q.defaultDateKey=Ym(Q.activeRoster)),(!Q.selectedDate||!Q.activeRoster.dates.some(e=>e.key===Q.selectedDate))&&(Q.selectedDate=Q.defaultDateKey),ih(),rh(),ah(),oh(),fh(),hh(),document.querySelectorAll(`.nav-button`).forEach(e=>{let t=e.dataset.tab===Q.activeTab;e.classList.toggle(`is-active`,t)}),Z.dailyPanel.classList.toggle(`hidden`,Q.activeTab!==`daily`),Z.monthlyPanel.classList.toggle(`hidden`,Q.activeTab!==`monthly`),Z.activityPanel.classList.toggle(`hidden`,Q.activeTab!==`activity`)):(Z.summaryGrid.innerHTML=``,Z.dailyPanel.innerHTML=`<div class="empty-state">Belum ada data roster. Silakan upload file Excel manual.</div>`,Z.monthlyPanel.innerHTML=`<div class="empty-state">Belum ada data roster. Silakan upload file Excel manual.</div>`,Z.lastUpdatedValue.textContent=`--`,Z.activeFileValue.textContent=`--`,Z.activePeriodValue.textContent=`--`)},Ch=e=>{Q.pendingRoster=e;let t=e.warnings.length?`<ul class="warning-list">${e.warnings.map(e=>`<li>${e}</li>`).join(``)}</ul>`:`<p class="success-note">Tidak ada peringatan status yang ditemukan.</p>`;Z.modalContent.innerHTML=`
     <div class="preview-box">
       <div class="preview-row"><span>Nama file</span><strong>${e.filename}</strong></div>
       <div class="preview-row"><span>Periode</span><strong>${e.periodLabel}</strong></div>
@@ -337,4 +767,4 @@
       <h3>Validasi</h3>
       ${t}
     </div>
-  `,Z.modal.classList.remove(`hidden`),Z.modal.setAttribute(`aria-hidden`,`false`)},ah=()=>{Z.modal.classList.add(`hidden`),Z.modal.setAttribute(`aria-hidden`,`true`),Q.pendingRoster=null},oh=e=>{Q.activeRoster=e,Q.defaultDateKey=Bm(e),Q.selectedDate=Q.defaultDateKey,Q.lastUpdated=new Date,Q.lastFileName=e.filename,Q.pendingRoster=null;try{let t={roster:e,lastUpdated:Q.lastUpdated.toISOString()};localStorage.setItem(Mm,JSON.stringify(t)),Km(`Roster berhasil diperbarui dan akan tetap tersedia setelah halaman di-refresh.`,`success`)}catch{Km(`Roster berhasil ditampilkan, tetapi browser tidak dapat menyimpannya untuk sesi berikutnya.`,`warning`)}rh()},sh=()=>{let e=localStorage.getItem(Mm);if(e)try{let t=JSON.parse(e),n=t.roster,r=new Date(t.lastUpdated);if(!n||typeof n.filename!=`string`||!Array.isArray(n.dates)||!Array.isArray(n.personnel)||n.dates.length===0||n.personnel.length===0||Number.isNaN(r.getTime()))throw Error(`Data roster tersimpan tidak valid.`);Q.activeRoster=n,Q.defaultDateKey=Bm(n),Q.selectedDate=Q.defaultDateKey,Q.lastUpdated=r,Q.lastFileName=n.filename}catch{localStorage.removeItem(Mm),Km(`Data roster tersimpan tidak dapat dibaca. Silakan upload file Excel kembali.`,`warning`)}},ch=()=>{Q.activeRoster&&window.confirm(`Hapus roster aktif dan data tersimpan dari browser ini?`)&&(localStorage.removeItem(Mm),Q.activeRoster=null,Q.pendingRoster=null,Q.selectedDate=``,Q.defaultDateKey=``,Q.lastUpdated=null,Q.lastFileName=``,Km(`Data roster sudah direset.`,`success`),rh())},lh=async e=>{Q.pendingRoster=null,ah(),Km(``,``);let t=e.name.split(`.`).pop()?.toLowerCase();if(!t||![`xlsx`,`xls`].includes(t))Km(`Format file tidak didukung. Silakan upload file Excel (.xlsx atau .xls).`,`error`);else try{ih(qm(await e.arrayBuffer(),e.name)),Km(``,``)}catch(e){Km(e instanceof Error?e.message:`File Excel gagal diproses.`,`error`)}};Z.uploadTrigger.addEventListener(`click`,()=>Z.fileInput.click()),Z.resetRosterButton.addEventListener(`click`,ch),Z.fileInput.addEventListener(`change`,async e=>{let t=e.target,n=t.files?.[0];n&&(await lh(n),t.value=``)}),Z.printButton.addEventListener(`click`,()=>window.print()),Z.logoutButton.addEventListener(`click`,th),Z.dateSelect.addEventListener(`change`,e=>{Q.selectedDate=e.target.value,Jm(),Xm()}),Z.searchInput.addEventListener(`input`,e=>{Q.searchTerm=e.target.value,rh()}),document.querySelectorAll(`.nav-button`).forEach(e=>{e.addEventListener(`click`,()=>{Q.activeTab=e.dataset.tab===`monthly`?`monthly`:`daily`,rh()})}),Z.applyRosterButton.addEventListener(`click`,()=>{Q.pendingRoster&&(oh(Q.pendingRoster),ah())}),Z.togglePassword.addEventListener(`click`,()=>{let e=Z.passwordInput.type===`password`;Z.passwordInput.type=e?`text`:`password`,Z.togglePassword.textContent=e?`Hide`:`Show`,Z.togglePassword.setAttribute(`aria-label`,e?`Sembunyikan password`:`Tampilkan password`)}),Z.loginForm.addEventListener(`submit`,eh),Z.usernameInput.addEventListener(`keydown`,e=>{e.key===`Enter`&&(e.preventDefault(),Z.loginForm.requestSubmit())}),Z.passwordInput.addEventListener(`keydown`,e=>{e.key===`Enter`&&(e.preventDefault(),Z.loginForm.requestSubmit())}),document.addEventListener(`click`,e=>{e.target.matches(`[data-close-modal="true"]`)&&ah()}),window.addEventListener(`hashchange`,()=>{$m()});var uh,dh=()=>{uh&&window.clearInterval(uh),uh=window.setInterval(()=>{nh(),rh()},6e4)};window.addEventListener(`load`,()=>{sh(),$m(),rh(),dh()}),window.addEventListener(`beforeunload`,()=>{uh&&window.clearInterval(uh)});
+  `,Z.modal.classList.remove(`hidden`),Z.modal.setAttribute(`aria-hidden`,`false`)},wh=()=>{Z.modal.classList.add(`hidden`),Z.modal.setAttribute(`aria-hidden`,`true`),Q.pendingRoster=null},Th=e=>{Q.activeRoster=e,Q.defaultDateKey=Ym(e),Q.selectedDate=Q.defaultDateKey,Q.lastUpdated=new Date,Q.lastFileName=e.filename,Q.pendingRoster=null;try{let t={roster:e,lastUpdated:Q.lastUpdated.toISOString()};localStorage.setItem(Mm,JSON.stringify(t)),th(`Roster berhasil diperbarui dan akan tetap tersedia setelah halaman di-refresh.`,`success`)}catch{th(`Roster berhasil ditampilkan, tetapi browser tidak dapat menyimpannya untuk sesi berikutnya.`,`warning`)}Sh()},Eh=()=>{let e=localStorage.getItem(Mm);if(e)try{let t=JSON.parse(e),n=t.roster,r=new Date(t.lastUpdated);if(!n||typeof n.filename!=`string`||!Array.isArray(n.dates)||!Array.isArray(n.personnel)||n.dates.length===0||n.personnel.length===0||Number.isNaN(r.getTime()))throw Error(`Data roster tersimpan tidak valid.`);Q.activeRoster=n,Q.defaultDateKey=Ym(n),Q.selectedDate=Q.defaultDateKey,Q.lastUpdated=r,Q.lastFileName=n.filename}catch{localStorage.removeItem(Mm),th(`Data roster tersimpan tidak dapat dibaca. Silakan upload file Excel kembali.`,`warning`)}},Dh=()=>{Q.activeRoster&&window.confirm(`Hapus roster aktif dan data tersimpan dari browser ini?`)&&(localStorage.removeItem(Mm),Q.activeRoster=null,Q.pendingRoster=null,Q.selectedDate=``,Q.defaultDateKey=``,Q.lastUpdated=null,Q.lastFileName=``,th(`Data roster sudah direset.`,`success`),Sh())},Oh=async e=>{Q.pendingRoster=null,wh(),th(``,``);let t=e.name.split(`.`).pop()?.toLowerCase();if(!t||![`xlsx`,`xls`].includes(t))th(`Format file tidak didukung. Silakan upload file Excel (.xlsx atau .xls).`,`error`);else try{Ch(nh(await e.arrayBuffer(),e.name)),th(``,``)}catch(e){th(e instanceof Error?e.message:`File Excel gagal diproses.`,`error`)}};Z.uploadTrigger.addEventListener(`click`,()=>Z.fileInput.click()),Z.resetRosterButton.addEventListener(`click`,Dh),Z.fileInput.addEventListener(`change`,async e=>{let t=e.target,n=t.files?.[0];n&&(await Oh(n),t.value=``)}),Z.printButton.addEventListener(`click`,()=>window.print()),Z.logoutButton.addEventListener(`click`,vh),Z.dateSelect.addEventListener(`change`,e=>{Q.selectedDate=e.target.value,rh(),ah()}),Z.searchInput.addEventListener(`input`,e=>{Q.searchTerm=e.target.value,Sh()}),document.querySelectorAll(`.nav-button`).forEach(e=>{e.addEventListener(`click`,()=>{Q.activeTab=e.dataset.tab===`monthly`?`monthly`:e.dataset.tab===`activity`?`activity`:`daily`,Sh()})}),Z.applyRosterButton.addEventListener(`click`,()=>{Q.pendingRoster&&(Th(Q.pendingRoster),wh())}),Z.togglePassword.addEventListener(`click`,()=>{let e=Z.passwordInput.type===`password`;Z.passwordInput.type=e?`text`:`password`,Z.togglePassword.textContent=e?`Hide`:`Show`,Z.togglePassword.setAttribute(`aria-label`,e?`Sembunyikan password`:`Tampilkan password`)}),Z.loginForm.addEventListener(`submit`,_h),Z.usernameInput.addEventListener(`keydown`,e=>{e.key===`Enter`&&(e.preventDefault(),Z.loginForm.requestSubmit())}),Z.passwordInput.addEventListener(`keydown`,e=>{e.key===`Enter`&&(e.preventDefault(),Z.loginForm.requestSubmit())}),document.addEventListener(`click`,e=>{let t=e.target;if(t.closest(`[data-close-modal="true"]`)){wh();return}let n=t.closest(`[data-activity-action]`);if(!n)return;let r=n.dataset.activityAction;if(r){if(r===`create`)Q.activitySelectedId=null,Q.activityDraft=zm(),Q.activityMode=`form`,fh();else if(r===`list`)Q.activityMode=`list`,fh();else if(r===`save`)bh();else if(r===`open`||r===`view`){let e=n.dataset.reportId;if(!e)return;Q.activitySelectedId=e,Q.activityMode=`view`,fh()}else if(r===`edit`){let e=n.dataset.reportId;if(!e)return;let t=Q.activityReports.find(t=>t.id===e);if(!t)return;Q.activitySelectedId=e,Q.activityDraft=Bm(t),Q.activityMode=`form`,fh()}else if(r===`print`){let e=n.dataset.reportId;if(!e)return;mh(e)}else if(r===`delete`){let e=n.dataset.reportId;if(!e)return;let t=Q.activityReports.find(t=>t.id===e);if(!t||!window.confirm(`Delete the report for ${t.personOnDuty||`this person`} on ${sh(t.date)}?`))return;Q.activityReports=Q.activityReports.filter(t=>t.id!==e),Q.activitySelectedId===e&&(Q.activitySelectedId=Q.activityReports[0]?.id??null),Q.activityMode=`list`,fh()}else if(r===`add-event`){if(!Q.activityDraft)return;Q.activityDraft.events.push(Lm()),fh()}else if(r===`remove-event`){if(!Q.activityDraft)return;let e=n.dataset.eventId;if(!e)return;Q.activityDraft.events.length>1&&(Q.activityDraft.events=Q.activityDraft.events.filter(t=>t.id!==e)),fh()}else if(r===`add-notification`){if(!Q.activityDraft)return;Q.activityDraft.notifications.push(Rm()),fh()}else if(r===`remove-notification`){if(!Q.activityDraft)return;let e=n.dataset.notificationId;if(!e)return;Q.activityDraft.notifications.length>1&&(Q.activityDraft.notifications=Q.activityDraft.notifications.filter(t=>t.id!==e)),fh()}}}),document.addEventListener(`input`,e=>{let t=e.target;if(t.dataset.field){if(t.dataset.activityFilter){let e=t.dataset.activityFilter;Q.activityFilters[e]=t.value,fh()}else t.dataset.activityScope&&xh(t)}}),document.addEventListener(`change`,e=>{let t=e.target;if(t.dataset.field){if(t.dataset.activityFilter){let e=t.dataset.activityFilter;Q.activityFilters[e]=t.value,fh()}else t.dataset.activityScope&&xh(t)}}),window.addEventListener(`hashchange`,()=>{gh()});var kh,Ah=()=>{kh&&window.clearInterval(kh),kh=window.setInterval(()=>{yh(),Sh()},6e4)};window.addEventListener(`load`,()=>{Eh(),gh(),Sh(),Ah()}),window.addEventListener(`beforeunload`,()=>{kh&&window.clearInterval(kh)}),window.addEventListener(`afterprint`,()=>{Z.activityPrintRoot.classList.add(`hidden`),Z.activityPrintRoot.innerHTML=``});
