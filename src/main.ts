@@ -445,6 +445,25 @@ const getActivityStatusClass = (status: DailyActivityStatus): string => {
   return 'draft';
 };
 
+const getShiftPrintLabel = (shift: DailyActivityShift): string => {
+  if (shift === 'Pagi') return 'Pagi (06:00 - 15:00)';
+  if (shift === 'Siang') return 'Siang (13:00 - 22:00)';
+  return shift;
+};
+
+const getPrintLogoMarkup = (type: 'kcic' | 'hpio'): string => {
+  const fileName = type === 'kcic' ? 'logo_kcic.jpg' : 'logo%20hpio.jpeg';
+  const altText = type === 'kcic' ? 'KCIC' : 'HPIO';
+  const fallback = type === 'kcic' ? 'KCIC' : 'HPIO';
+
+  return `
+    <div class="print-logo print-logo-${type}">
+      <img src="/${fileName}" alt="${altText}" onerror="this.style.display='none'; this.parentElement.querySelector('.logo-fallback').style.display='block';" />
+      <div class="logo-fallback" style="display:none;">${fallback}</div>
+    </div>
+  `;
+};
+
 const DAILY_ACTIVITY_REPORTS: DailyActivityReport[] = [
   {
     id: 'act-1001',
@@ -1450,7 +1469,13 @@ const renderDailyActivityPrint = (report: DailyActivityReport): void => {
   ui.activityPrintRoot.classList.remove('hidden');
   ui.activityPrintRoot.innerHTML = `
     <div class="daily-activity-print-sheet">
-      <h1>Daily Operation and Maintenance<br />Shift Handover Records</h1>
+      <div class="print-header-brand">
+        ${getPrintLogoMarkup('kcic')}
+        <div class="print-title-block">
+          <h1>Daily Operation and Maintenance<br />Shift Handover Records</h1>
+        </div>
+        ${getPrintLogoMarkup('hpio')}
+      </div>
 
       <div class="print-header-grid">
         <div class="print-field">
@@ -1463,13 +1488,13 @@ const renderDailyActivityPrint = (report: DailyActivityReport): void => {
         </div>
         <div class="print-field">
           <span>Shift</span>
-          <strong>${report.shift || ''}</strong>
+          <strong>${getShiftPrintLabel(report.shift)}</strong>
         </div>
       </div>
 
       <section class="print-section">
-        <h2>Fault & Event Registration</h2>
-        <table>
+        <h2>Fault &amp; Event Registration</h2>
+        <table class="fault-print-table">
           <thead>
             <tr>
               <th>No.</th>
@@ -1487,7 +1512,7 @@ const renderDailyActivityPrint = (report: DailyActivityReport): void => {
 
       <section class="print-section">
         <h2>Information Notification Record</h2>
-        <table>
+        <table class="notification-print-table">
           <thead>
             <tr>
               <th>No.</th>
@@ -1499,45 +1524,72 @@ const renderDailyActivityPrint = (report: DailyActivityReport): void => {
         </table>
       </section>
 
-      <section class="print-section handover-print-layout">
-        <div class="handover-left-box">
-          <div class="handover-yes-no">
-            <span>Are spare parts, tools and auxiliary materials complete?</span>
-            <div class="print-radio-row">
-              <span class="print-radio ${report.handover.sparePartsStatus === 'Yes' ? 'selected' : ''}">Yes</span>
-              <span class="print-radio ${report.handover.sparePartsStatus === 'No' ? 'selected' : ''}">No</span>
+      <section class="print-section">
+        <h2>Handover Record</h2>
+        <div class="handover-print-layout">
+          <div class="handover-left-box">
+            <div class="handover-yes-no">
+              <span>Are spare parts, tools and auxiliary materials complete?</span>
+              <div class="print-radio-row">
+                <span class="print-radio ${report.handover.sparePartsStatus === 'Yes' ? 'selected' : ''}">□ Yes</span>
+                <span class="print-radio ${report.handover.sparePartsStatus === 'No' ? 'selected' : ''}">□ No</span>
+              </div>
+            </div>
+            <div class="handover-matters-box">
+              <span>Handover Matters</span>
+              <p>${report.handover.handoverMatters || ''}</p>
             </div>
           </div>
-          <div class="handover-matters-box">
-            <span>Handover Matters</span>
-            <p>${report.handover.handoverMatters || ''}</p>
-          </div>
-        </div>
 
-        <div class="handover-right-box">
-          <div class="handover-inline-grid">
-            <div class="print-field small-field">
-              <span>Handover Person</span>
-              <strong>${report.handover.handoverPerson || ''}</strong>
-            </div>
-            <div class="print-field small-field">
-              <span>Time</span>
-              <strong>${report.handover.handoverTime || ''}</strong>
-            </div>
-          </div>
-          <div class="handover-inline-grid">
-            <div class="print-field small-field">
-              <span>Takeover Person</span>
-              <strong>${report.handover.takeoverPerson || ''}</strong>
-            </div>
-            <div class="print-field small-field">
-              <span>Time</span>
-              <strong>${report.handover.takeoverTime || ''}</strong>
-            </div>
-          </div>
-          <div class="print-field small-field acknowledged-box">
-            <span>Acknowledged by</span>
-            <strong>${report.handover.acknowledgedBy || ''}</strong>
+          <div class="handover-right-box">
+            <table class="handover-print-table handover-detail-table">
+              <thead>
+                <tr>
+                  <th>Handover Person</th>
+                  <th>Time</th>
+                  <th>Paraf</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>${report.handover.handoverPerson || ''}</td>
+                  <td>${report.handover.handoverTime || ''}</td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <table class="handover-print-table handover-detail-table">
+              <thead>
+                <tr>
+                  <th>Takeover Person</th>
+                  <th>Time</th>
+                  <th>Paraf</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>${report.handover.takeoverPerson || ''}</td>
+                  <td>${report.handover.takeoverTime || ''}</td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <table class="handover-print-table acknowledged-table">
+              <thead>
+                <tr>
+                  <th>Acknowledged by</th>
+                  <th>Paraf</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>${report.handover.acknowledgedBy || ''}</td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
