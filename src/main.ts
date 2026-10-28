@@ -206,8 +206,8 @@ app.innerHTML = `
       <header class="topbar">
         <div>
 
-     <p class="eyebrow">rabby bangsat HPIO</p>
-<h1>rabby goblog IT HPIO</h1>
+     <p class="eyebrow"><marquee>Monitoring Personel HPIO</marquee></p>
+<h1>Dashboard Ranger IT HPIO</h1>
 
         </div>
         <div class="topbar-actions">
