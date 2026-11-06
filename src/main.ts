@@ -451,19 +451,6 @@ const getShiftPrintLabel = (shift: DailyActivityShift): string => {
   return shift;
 };
 
-const getPrintLogoMarkup = (type: 'kcic' | 'hpio'): string => {
-  const fileName = type === 'kcic' ? 'logo_kcic.jpg' : 'logo%20hpio.jpeg';
-  const altText = type === 'kcic' ? 'KCIC' : 'HPIO';
-  const fallback = type === 'kcic' ? 'KCIC' : 'HPIO';
-
-  return `
-    <div class="print-logo print-logo-${type}">
-      <img src="/${fileName}" alt="${altText}" onerror="this.style.display='none'; this.parentElement.querySelector('.logo-fallback').style.display='block';" />
-      <div class="logo-fallback" style="display:none;">${fallback}</div>
-    </div>
-  `;
-};
-
 const DAILY_ACTIVITY_REPORTS: DailyActivityReport[] = [
   {
     id: 'act-1001',
@@ -1433,69 +1420,75 @@ const renderDailyActivityPanel = (): void => {
 const renderDailyActivityPrint = (report: DailyActivityReport): void => {
   const validEvents = report.events.filter((event) => [event.time, event.contact, event.location, event.overview, event.measures, event.result].some((value) => value.trim().length > 0));
   const validNotifications = report.notifications.filter((record) => record.person.trim().length > 0 || record.content.trim().length > 0);
+  const escapePrintText = (value: string): string =>
+    value.replace(/[&<>"']/g, (character) => {
+      const entities: Record<string, string> = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      };
+      return entities[character] ?? character;
+    });
 
-  const printEvents = validEvents.length
-    ? validEvents
-        .map(
-          (event, index) => `
-            <tr>
-              <td>${index + 1}</td>
-              <td>${event.time || ''}</td>
-              <td>${event.contact || ''}</td>
-              <td>${event.location || ''}</td>
-              <td>${event.overview || ''}</td>
-              <td>${event.measures || ''}</td>
-              <td>${event.result || ''}</td>
-            </tr>
-          `,
-        )
-        .join('')
-    : '<tr><td colspan="7"> </td></tr>';
+  const printEvents = Array.from({ length: Math.max(3, validEvents.length) }, (_, index) => {
+    const event = validEvents[index];
+    return `
+      <tr>
+        <td>${event ? index + 1 : ''}</td>
+        <td>${escapePrintText(event?.time ?? '')}</td>
+        <td>${escapePrintText(event?.contact ?? '')}</td>
+        <td>${escapePrintText(event?.location ?? '')}</td>
+        <td>${escapePrintText(event?.overview ?? '')}</td>
+        <td>${escapePrintText(event?.measures ?? '')}</td>
+        <td>${escapePrintText(event?.result ?? '')}</td>
+      </tr>
+    `;
+  }).join('');
 
-  const printNotifications = validNotifications.length
-    ? validNotifications
-        .map(
-          (notification, index) => `
-            <tr>
-              <td>${index + 1}</td>
-              <td>${notification.person || ''}</td>
-              <td>${notification.content || ''}</td>
-            </tr>
-          `,
-        )
-        .join('')
-    : '<tr><td colspan="3"> </td></tr>';
+  const printNotifications = Array.from({ length: Math.max(5, validNotifications.length) }, (_, index) => {
+    const notification = validNotifications[index];
+    return `
+      <tr>
+        <td>${notification ? index + 1 : ''}</td>
+        <td>${escapePrintText(notification?.person ?? '')}</td>
+        <td>${escapePrintText(notification?.content ?? '')}</td>
+      </tr>
+    `;
+  }).join('');
 
   ui.activityPrintRoot.classList.remove('hidden');
   ui.activityPrintRoot.innerHTML = `
     <div class="daily-activity-print-sheet">
-      <div class="print-header-brand">
-        ${getPrintLogoMarkup('kcic')}
-        <div class="print-title-block">
-          <h1>Daily Operation and Maintenance<br />Shift Handover Records</h1>
-        </div>
-        ${getPrintLogoMarkup('hpio')}
-      </div>
+      <header class="print-header-brand">
+        <h1>Daily Operation and Maintenance<br />Shift Handover Records</h1>
+      </header>
 
       <div class="print-header-grid">
         <div class="print-field">
-          <span>Date</span>
-          <strong>${formatActivityDate(report.date)}</strong>
+          <span>Date :</span>
+          <strong>${escapePrintText(formatActivityDate(report.date))}</strong>
         </div>
         <div class="print-field">
-          <span>Person On Duty</span>
-          <strong>${report.personOnDuty || ''}</strong>
+          <span>Person On Duty :</span>
+          <strong>${escapePrintText(report.personOnDuty || '')}</strong>
         </div>
         <div class="print-field">
-          <span>Shift</span>
-          <strong>${getShiftPrintLabel(report.shift)}</strong>
+          <span>Shift :</span>
+          <strong>${escapePrintText(getShiftPrintLabel(report.shift))}</strong>
         </div>
       </div>
 
       <section class="print-section">
-        <h2>Fault &amp; Event Registration</h2>
         <table class="fault-print-table">
+          <colgroup>
+            <col /><col /><col /><col /><col /><col /><col />
+          </colgroup>
           <thead>
+            <tr class="table-section-title">
+              <th colspan="7">Fault &amp; Event Registration</th>
+            </tr>
             <tr>
               <th>No.</th>
               <th>Time</th>
@@ -1511,9 +1504,14 @@ const renderDailyActivityPrint = (report: DailyActivityReport): void => {
       </section>
 
       <section class="print-section">
-        <h2>Information Notification Record</h2>
         <table class="notification-print-table">
+          <colgroup>
+            <col /><col /><col />
+          </colgroup>
           <thead>
+            <tr class="table-section-title">
+              <th colspan="3">Information Notification Record</th>
+            </tr>
             <tr>
               <th>No.</th>
               <th>Notifying Person / Team</th>
@@ -1525,76 +1523,53 @@ const renderDailyActivityPrint = (report: DailyActivityReport): void => {
       </section>
 
       <section class="print-section">
-        <h2>Handover Record</h2>
+        <table class="handover-title-table">
+          <thead>
+            <tr class="table-section-title">
+              <th>Handover Record</th>
+            </tr>
+          </thead>
+        </table>
         <div class="handover-print-layout">
           <div class="handover-left-box">
             <div class="handover-yes-no">
               <span>Are spare parts, tools and auxiliary materials complete?</span>
               <div class="print-radio-row">
-                <span class="print-radio ${report.handover.sparePartsStatus === 'Yes' ? 'selected' : ''}">□ Yes</span>
-                <span class="print-radio ${report.handover.sparePartsStatus === 'No' ? 'selected' : ''}">□ No</span>
+                <span>Yes <span class="print-checkbox ${report.handover.sparePartsStatus === 'Yes' ? 'selected' : ''}" aria-hidden="true"></span></span>
+                <span>No <span class="print-checkbox ${report.handover.sparePartsStatus === 'No' ? 'selected' : ''}" aria-hidden="true"></span></span>
               </div>
             </div>
             <div class="handover-matters-box">
-              <span>Handover Matters</span>
-              <p>${report.handover.handoverMatters || ''}</p>
+              <span>Handover Matters :</span>
+              <p>${escapePrintText(report.handover.handoverMatters || '')}</p>
             </div>
           </div>
 
           <div class="handover-right-box">
-            <table class="handover-print-table handover-detail-table">
-              <thead>
-                <tr>
-                  <th>Handover Person</th>
-                  <th>Time</th>
-                  <th>Paraf</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>${report.handover.handoverPerson || ''}</td>
-                  <td>${report.handover.handoverTime || ''}</td>
-                  <td></td>
-                </tr>
-              </tbody>
-            </table>
-
-            <table class="handover-print-table handover-detail-table">
-              <thead>
-                <tr>
-                  <th>Takeover Person</th>
-                  <th>Time</th>
-                  <th>Paraf</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>${report.handover.takeoverPerson || ''}</td>
-                  <td>${report.handover.takeoverTime || ''}</td>
-                  <td></td>
-                </tr>
-              </tbody>
-            </table>
-
-            <table class="handover-print-table acknowledged-table">
-              <thead>
-                <tr>
-                  <th>Acknowledged by</th>
-                  <th>Paraf</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>${report.handover.acknowledgedBy || ''}</td>
-                  <td></td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="handover-signatures">
+              <div class="handover-signature">
+                <span>Handover Person :</span>
+                <strong>${escapePrintText(report.handover.handoverPerson || '')}</strong>
+                <span class="signature-time">Time :</span>
+                <strong>${escapePrintText(report.handover.handoverTime || '')}</strong>
+              </div>
+              <div class="handover-signature">
+                <span>Takeover Person :</span>
+                <strong>${escapePrintText(report.handover.takeoverPerson || '')}</strong>
+                <span class="signature-time">Time :</span>
+                <strong>${escapePrintText(report.handover.takeoverTime || '')}</strong>
+              </div>
+            </div>
+            <div class="acknowledged-signature">
+              <span>Acknowledged by :</span>
+              <strong>${escapePrintText(report.handover.acknowledgedBy || '')}</strong>
+            </div>
           </div>
         </div>
       </section>
 
       <div class="print-notes">
+        <strong>Notes:</strong>
         <p>1. "Fault and Event Registration" records the failure and event found in each shift.</p>
         <p>2. "Information Notification Record" records the information system-related call records received by each shift.</p>
       </div>
