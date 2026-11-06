@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
     "build": "tsc && vite build",
+    "build:client": "npm run build --prefix client",
     "preview": "vite preview"
   },
   "devDependencies": {

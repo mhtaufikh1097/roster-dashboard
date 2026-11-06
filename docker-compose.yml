@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: roster
+      POSTGRES_PASSWORD: roster
+      POSTGRES_DB: roster
+    ports:
+      - "5432:5432"
+    volumes:
+      - roster-pgdata:/var/lib/postgresql/data
+
+volumes:
+  roster-pgdata:
+
