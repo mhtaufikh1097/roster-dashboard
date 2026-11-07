@@ -7,6 +7,7 @@ export type AuthUser = {
   id: number;
   username: string;
   fullName: string;
+  position?: string;
   role: Role;
   personnelId: number | null;
 };
@@ -38,6 +39,7 @@ export type ManagedUser = {
   id: number;
   username: string;
   fullName: string;
+  position: string;
   role: Role;
   personnelId: number | null;
   personnelName: string | null;
@@ -94,4 +96,26 @@ export type ActivityReport = {
   events: ActivityEvent[];
   notifications: ActivityNotification[];
   handover: ActivityHandover;
+};
+
+export type AuditAction = 'LOGIN' | 'LOGOUT' | 'EDIT' | 'DELETE';
+
+export type AuditLogItem = {
+  id: number;
+  userId: number | null;
+  username: string;
+  fullName: string;
+  role: Role;
+  action: AuditAction;
+  module: string;
+  description: string;
+  createdAt: string;
+};
+
+export type AuditLogResponse = {
+  items: AuditLogItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 };

@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { PoolClient } from 'pg';
 import { pool, withTransaction } from '../db.js';
 import { authenticate, requireRole } from '../auth.js';
+import { recordAuditLog } from '../auditLog.js';
 import { ensureTechnicianAccount } from '../userSync.js';
 
 type Status = 'PAGI' | 'SIANG' | 'Office Hour' | '';
@@ -163,6 +164,12 @@ export const rosterRoutes = async (app: FastifyInstance): Promise<void> => {
       }
       return rows[0].id;
     });
+    await recordAuditLog({
+      user: request.user,
+      action: 'EDIT',
+      module: 'Jadwal Roster',
+      description: `Membuat / upload periode roster: ${body.monthLabel!.trim()} (${sorted[0]} s/d ${sorted[sorted.length - 1]})`,
+    });
     return reply.code(201).send({ id });
   });
 
@@ -185,7 +192,14 @@ export const rosterRoutes = async (app: FastifyInstance): Promise<void> => {
         await writeEntries(client, Number(request.params.id), body);
         return true;
       });
-      return found ? { ok: true } : reply.code(404).send({ message: 'Periode roster tidak ditemukan.' });
+      if (!found) return reply.code(404).send({ message: 'Periode roster tidak ditemukan.' });
+      await recordAuditLog({
+        user: request.user,
+        action: 'EDIT',
+        module: 'Jadwal Roster',
+        description: `Mengedit jadwal periode roster: ${body.monthLabel!.trim()} (ID #${request.params.id})`,
+      });
+      return { ok: true };
     },
   );
 
@@ -193,16 +207,34 @@ export const rosterRoutes = async (app: FastifyInstance): Promise<void> => {
     '/api/roster/periods/:id/activate',
     { preHandler: requireRole('admin') },
     async (request, reply) => {
-      const exists = await pool.query('SELECT 1 FROM roster_periods WHERE id = $1', [request.params.id]);
+      const exists = await pool.query<{ month_label: string }>('SELECT month_label FROM roster_periods WHERE id = $1', [
+        request.params.id,
+      ]);
       if (!exists.rowCount) return reply.code(404).send({ message: 'Periode roster tidak ditemukan.' });
       await pool.query('UPDATE roster_periods SET is_active = (id = $1)', [request.params.id]);
+      await recordAuditLog({
+        user: request.user,
+        action: 'EDIT',
+        module: 'Jadwal Roster',
+        description: `Mengaktifkan periode roster: ${exists.rows[0]?.month_label ?? `#${request.params.id}`}`,
+      });
       return { ok: true };
     },
   );
 
   app.delete<{ Params: { id: string } }>('/api/roster/periods/:id', { preHandler: requireRole('admin') }, async (request, reply) => {
+    const prev = await pool.query<{ month_label: string }>('SELECT month_label FROM roster_periods WHERE id = $1', [
+      request.params.id,
+    ]);
     const result = await pool.query('DELETE FROM roster_periods WHERE id = $1', [request.params.id]);
-    return result.rowCount ? { ok: true } : reply.code(404).send({ message: 'Periode roster tidak ditemukan.' });
+    if (!result.rowCount) return reply.code(404).send({ message: 'Periode roster tidak ditemukan.' });
+    await recordAuditLog({
+      user: request.user,
+      action: 'DELETE',
+      module: 'Jadwal Roster',
+      description: `Menghapus periode roster: ${prev.rows[0]?.month_label ?? `#${request.params.id}`}`,
+    });
+    return { ok: true };
   });
 };
 

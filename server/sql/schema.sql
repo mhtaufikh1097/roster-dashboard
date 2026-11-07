@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
   username       TEXT NOT NULL UNIQUE,
   password_hash  TEXT NOT NULL,
   full_name      TEXT NOT NULL DEFAULT '',
+  position       TEXT NOT NULL DEFAULT '',
   role           TEXT NOT NULL CHECK (role IN ('admin', 'supervisor', 'user')),
   personnel_id   INTEGER REFERENCES personnel(id) ON DELETE SET NULL,
   is_active      BOOLEAN NOT NULL DEFAULT TRUE,
@@ -82,4 +83,18 @@ CREATE TABLE IF NOT EXISTS activity_notifications (
   person     TEXT NOT NULL DEFAULT '',
   content    TEXT NOT NULL DEFAULT ''
 );
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id           SERIAL PRIMARY KEY,
+  user_id      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  username     TEXT NOT NULL DEFAULT '',
+  full_name    TEXT NOT NULL DEFAULT '',
+  role         TEXT NOT NULL DEFAULT 'user',
+  action       TEXT NOT NULL CHECK (action IN ('LOGIN', 'LOGOUT', 'EDIT', 'DELETE')),
+  module       TEXT NOT NULL DEFAULT '',
+  description  TEXT NOT NULL DEFAULT '',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at DESC);
+
 

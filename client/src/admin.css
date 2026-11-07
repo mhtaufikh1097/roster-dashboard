@@ -1307,6 +1307,312 @@
   background: #94a3b8;
 }
 
+/* ====== Tabel Log Aktivitas Pengguna (Audit Logs Admin) ====== */
+.audit-log-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 0;
+}
+
+.audit-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.audit-quick-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.audit-filter-grid {
+  margin-bottom: 0 !important;
+}
+
+.audit-log-table td {
+  vertical-align: middle;
+}
+
+.audit-time-cell {
+  white-space: nowrap;
+  font-size: 0.82rem;
+  color: var(--slate-700);
+}
+
+.audit-user-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.audit-user-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  color: var(--slate-500);
+}
+
+.audit-action-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.audit-action-badge.log-login {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.audit-action-badge.log-logout {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.audit-action-badge.log-edit {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.audit-action-badge.log-delete {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.audit-desc-cell {
+  font-size: 0.86rem;
+  color: var(--navy-900);
+  min-width: 240px;
+}
+
+.audit-pagination-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--slate-200);
+}
+
+.audit-page-indicator {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--navy-900);
+  padding: 0 6px;
+}
+
+/* ====== Logo KCIC di Sidebar & Halaman Login Modern ====== */
+.brand-logo-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--white);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.14);
+}
+
+.sidebar-kcic-logo {
+  height: 24px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+}
+
+.modern-login-screen {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(circle at top, #ffffff 0%, #f1f5f9 55%, #e2e8f0 100%);
+}
+
+.modern-login-card {
+  width: min(440px, 100%);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(203, 213, 225, 0.8);
+  border-radius: 24px;
+  padding: 36px 32px 28px;
+  box-shadow: 0 24px 54px rgba(15, 23, 42, 0.1);
+}
+
+.login-logo-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 26px;
+}
+
+.kcic-login-logo {
+  height: 54px;
+  width: auto;
+  object-fit: contain;
+  margin-bottom: 16px;
+}
+
+.login-badge-pill {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: var(--blue-600);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+
+.login-logo-header h1 {
+  margin: 0 0 6px;
+  font-size: 1.65rem;
+  color: var(--navy-900);
+}
+
+.login-logo-header p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--slate-500);
+  line-height: 1.5;
+}
+
+/* ====== Tombol & Popover Daftar Akun di Pojok Kanan Bawah Login ====== */
+.login-floating-corner {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.floating-accounts-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: var(--navy-900);
+  color: var(--white);
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.22);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.floating-accounts-btn:hover {
+  transform: translateY(-2px);
+  background: #1e293b;
+}
+
+.floating-accounts-btn.is-open {
+  background: var(--blue-600);
+  border-color: var(--blue-600);
+}
+
+.login-accounts-popover {
+  width: min(390px, calc(100vw - 36px));
+  max-height: min(74vh, 520px);
+  display: flex;
+  flex-direction: column;
+  background: var(--white);
+  border: 1px solid var(--slate-200);
+  border-radius: 20px;
+  box-shadow: 0 22px 48px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+}
+
+.popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--slate-200);
+  background: #f8fafc;
+}
+
+.popover-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--navy-900);
+}
+
+.popover-body {
+  padding: 14px 18px;
+  overflow-y: auto;
+  display: grid;
+  gap: 14px;
+}
+
+.quick-label-dark {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--slate-700);
+  margin-bottom: 4px;
+}
+
+.quick-account-chip-light {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--slate-200);
+  background: #f8fafc;
+  color: var(--navy-900);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.quick-account-chip-light:hover {
+  border-color: var(--blue-500);
+  background: #eff6ff;
+}
+
+.quick-account-chip-light.engineer-chip {
+  border-color: #99f6e4;
+  background: #f0fdfa;
+}
+
+.quick-account-chip-light.engineer-chip:hover {
+  border-color: #14b8a6;
+  background: #ccfbf1;
+}
+
+.quick-account-chip-light.admin-chip {
+  border-color: #c7d2fe;
+  background: #eef2ff;
+}
+
+.quick-account-chip-light small {
+  font-size: 0.72rem;
+  color: var(--slate-500);
+}
+
 /* ====== Modal Form Buat / Edit Aktifitas Harian ====== */
 .activity-form-modal {
   padding: 20px;

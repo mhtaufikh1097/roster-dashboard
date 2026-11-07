@@ -82,15 +82,15 @@ export const ensureTechnicianAccount = async (
   }
 
   await db.query(
-    `INSERT INTO users (username, password_hash, full_name, role, personnel_id, is_active)
-     VALUES ($1, $2, $3, 'user', $4, TRUE)`,
+    `INSERT INTO users (username, password_hash, full_name, position, role, personnel_id, is_active)
+     VALUES ($1, $2, $3, 'IT Technician', 'user', $4, TRUE)`,
     [candidate, hash, cleanName, personnelId],
   );
 };
 
 const INITIAL_SUPERVISORS = [
-  { username: 'zigmahara', fullName: 'Zigmahara' },
-  { username: 'syaeful', fullName: 'Muhammad Syaeful' },
+  { username: 'zigmahara', fullName: 'Zigmahara', position: 'IT Engineer' },
+  { username: 'syaeful', fullName: 'Muhammad Syaeful', position: 'IT Engineer' },
 ];
 
 const INITIAL_ROSTER_PERSONNEL: Array<{
@@ -163,28 +163,39 @@ const INITIAL_ROSTER_PERSONNEL: Array<{
 
 export const ensureInitialData = async (): Promise<void> => {
   await withTransaction(async (client: PoolClient) => {
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS position TEXT NOT NULL DEFAULT '';
+    `);
+
     const adminHash = await bcrypt.hash('Admin123!', 10);
     const supHash = await bcrypt.hash(DEFAULT_SUPERVISOR_PASSWORD, 10);
 
     await client.query(
-      `INSERT INTO users (username, password_hash, full_name, role, is_active)
-       VALUES ('admin', $1, 'Administrator', 'admin', TRUE)
-       ON CONFLICT (username) DO NOTHING`,
+      `INSERT INTO users (username, password_hash, full_name, position, role, is_active)
+       VALUES ('admin', $1, 'Administrator', 'Administrator', 'admin', TRUE)
+       ON CONFLICT (username) DO UPDATE SET
+         position = COALESCE(NULLIF(users.position, ''), 'Administrator')`,
       [adminHash],
     );
 
-    // Pastikan akun Supervisor Zigmahara & Muhammad Syaeful tersedia
+    // Pastikan akun Zigmahara & Muhammad Syaeful tersedia dengan jabatan IT Engineer
     for (const sup of INITIAL_SUPERVISORS) {
       await client.query(
-        `INSERT INTO users (username, password_hash, full_name, role, is_active)
-         VALUES ($1, $2, $3, 'supervisor', TRUE)
+        `INSERT INTO users (username, password_hash, full_name, position, role, is_active)
+         VALUES ($1, $2, $3, $4, 'supervisor', TRUE)
          ON CONFLICT (username) DO UPDATE SET
            full_name = EXCLUDED.full_name,
+           position = COALESCE(NULLIF(users.position, ''), EXCLUDED.position),
            role = 'supervisor',
            is_active = TRUE`,
-        [sup.username, supHash, sup.fullName],
+        [sup.username, supHash, sup.fullName, sup.position],
       );
     }
+
+    await client.query(`
+      UPDATE users SET position = 'IT Engineer' WHERE role = 'supervisor' AND (position = '' OR lower(position) = 'supervisor');
+      UPDATE users SET position = 'IT Technician' WHERE role = 'user' AND position = '';
+    `);
 
     // Nonaktifkan akun dummy 'supervisor' dan 'user' bawaan awal jika masih ada agar daftar user bersih
     await client.query(

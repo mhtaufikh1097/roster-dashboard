@@ -14,15 +14,21 @@ onMounted(() => {
 });
 
 const logout = async (): Promise<void> => {
-  auth.logout();
+  await auth.logout();
   await router.replace({ name: 'login' });
 };
 
-const roleLabel: Record<string, string> = {
+const defaultJobTitle: Record<string, string> = {
   admin: 'Administrator',
-  supervisor: 'Supervisor',
+  supervisor: 'IT Engineer',
   user: 'IT Technician',
 };
+
+const userJobTitle = computed(() => {
+  const custom = auth.state.user?.position?.trim();
+  if (custom && custom.toLowerCase() !== 'supervisor') return custom;
+  return defaultJobTitle[auth.state.user?.role ?? 'user'] ?? 'IT Technician';
+});
 
 const userDisplayName = computed(() => auth.state.user?.fullName || auth.state.user?.username || 'User');
 
@@ -54,12 +60,12 @@ const currentAdminTab = computed(() => (route.query.tab as string) || 'overview'
       }"
     >
       <div class="brand-wrap">
-        <div class="brand-mark">
-          {{ auth.isAdmin.value ? 'A' : auth.isSupervisor.value ? 'S' : 'R' }}
+        <div class="brand-logo-box">
+          <img src="/img/PT_KCIC_logo.png" alt="KCIC" class="sidebar-kcic-logo" />
         </div>
         <div>
           <p class="brand-title">
-            {{ auth.isAdmin.value ? 'Admin Center' : auth.isSupervisor.value ? 'Supervisor' : 'Roster' }}
+            {{ auth.isAdmin.value ? 'Admin Center' : auth.isSupervisor.value ? userJobTitle : 'Roster HPIO' }}
           </p>
           <small>
             {{
@@ -67,7 +73,7 @@ const currentAdminTab = computed(() => (route.query.tab as string) || 'overview'
                 ? 'Kendali Penuh Sistem'
                 : auth.isSupervisor.value
                   ? 'Approval & Monitoring'
-                  : 'IT Technician Portal'
+                  : userJobTitle
             }}
           </small>
         </div>
@@ -89,6 +95,13 @@ const currentAdminTab = computed(() => (route.query.tab as string) || 'overview'
           :to="{ path: '/admin', query: { tab: 'users' } }"
         >
           Dashboard Pengguna / User
+        </RouterLink>
+        <RouterLink
+          class="nav-button"
+          :class="{ 'is-active': route.name === 'admin' && currentAdminTab === 'logs' }"
+          :to="{ path: '/admin', query: { tab: 'logs' } }"
+        >
+          Log Aktivitas Pengguna
         </RouterLink>
         <RouterLink
           class="nav-button"
@@ -117,16 +130,16 @@ const currentAdminTab = computed(() => (route.query.tab as string) || 'overview'
           Jadwal Roster
         </RouterLink>
         <RouterLink class="nav-button" active-class="is-active" to="/supervisor">
-          Layar Approval Supervisor
+          Layar Approval ({{ defaultJobTitle.supervisor }})
         </RouterLink>
         <RouterLink class="nav-button" active-class="is-active" to="/activity">
           Layar Input Technician
         </RouterLink>
       </nav>
 
-      <!-- ================= MENU KHUSUS SUPERVISOR ================= -->
-      <nav v-else-if="auth.isSupervisor.value" class="sidebar-nav" aria-label="Navigasi Supervisor">
-        <p class="nav-section-title">MODUL SUPERVISOR</p>
+      <!-- ================= MENU KHUSUS APPROVAL / IT ENGINEER ================= -->
+      <nav v-else-if="auth.isSupervisor.value" class="sidebar-nav" aria-label="Navigasi Approval">
+        <p class="nav-section-title">MODUL {{ userJobTitle.toUpperCase() }}</p>
         <RouterLink class="nav-button" active-class="is-active" to="/supervisor">
           Approval Laporan Technician
         </RouterLink>
@@ -167,7 +180,7 @@ const currentAdminTab = computed(() => (route.query.tab as string) || 'overview'
               auth.isAdmin.value
                 ? 'Admin Control Center — Pusat Pengelolaan Pengguna, Roster, Personel & Laporan HPIO'
                 : auth.isSupervisor.value
-                  ? 'Portal Supervisor — Monitoring & Approval Laporan Harian Technician HPIO'
+                  ? `Portal ${userJobTitle} — Monitoring & Approval Laporan Harian Technician HPIO`
                   : 'Monitoring Personel & Daily Activity Ranger IT HPIO'
             }}
           </p>
@@ -176,7 +189,7 @@ const currentAdminTab = computed(() => (route.query.tab as string) || 'overview'
               auth.isAdmin.value
                 ? 'Admin Control Center HPIO'
                 : auth.isSupervisor.value
-                  ? 'Supervisor Approval & Monitoring HPIO'
+                  ? `${userJobTitle} Approval & Monitoring HPIO`
                   : 'Dashboard Ranger IT HPIO'
             }}
           </h1>
@@ -201,7 +214,7 @@ const currentAdminTab = computed(() => (route.query.tab as string) || 'overview'
                 </span>
               </div>
               <span class="topbar-user-role">
-                {{ roleLabel[auth.state.user?.role ?? 'user'] }} • @{{ auth.state.user?.username }}
+                {{ userJobTitle }} • @{{ auth.state.user?.username }}
                 <template v-if="userShift"> • Jadwal {{ userShift.dateLabel }}</template>
               </span>
             </div>

@@ -21,9 +21,15 @@ const showPeriodDialog = ref(false);
 const supervisorNameInput = ref('');
 const filters = reactive({ date: '', person: '', shift: '' });
 
+const userJobTitle = computed((): string => {
+  const pos = auth.state.user?.position?.trim();
+  if (pos && pos.toLowerCase() !== 'supervisor') return pos;
+  return 'IT Engineer';
+});
+
 const defaultSupervisorName = computed((): string => {
   const user = auth.state.user;
-  if (!user) return 'Supervisor';
+  if (!user) return userJobTitle.value;
   if (user.personnelId) {
     const linked = rosterStore.personnel.find((p) => p.id === user.personnelId);
     if (linked?.name) return linked.name;
@@ -97,12 +103,12 @@ const openReview = (report: ActivityReport): void => {
 const approveReport = async (report: ActivityReport, customName?: string): Promise<void> => {
   const chosenName = (customName ?? supervisorNameInput.value ?? defaultSupervisorName.value).trim();
   if (!chosenName) {
-    setNotice('Nama Supervisor wajib diisi untuk Approve.', 'error');
+    setNotice(`Nama ${userJobTitle.value} wajib diisi untuk Approve.`, 'error');
     return;
   }
   try {
     await api('POST', `/activity/${report.id}/acknowledge`, { acknowledgedByName: chosenName });
-    setNotice(`Laporan tanggal ${formatActivityDate(report.date)} berhasil di-approve oleh ${chosenName} (Supervisor).`, 'success');
+    setNotice(`Laporan tanggal ${formatActivityDate(report.date)} berhasil di-approve oleh ${chosenName} (${userJobTitle.value}).`, 'success');
     await load();
   } catch (e) {
     setNotice(e instanceof Error ? e.message : 'Gagal meng-approve laporan.', 'error');
@@ -137,7 +143,7 @@ const printOne = (report: ActivityReport): void => {
 </script>
 
 <template>
-  <!-- Kartu Ringkasan Eksekutif Khusus Supervisor -->
+  <!-- Kartu Ringkasan Eksekutif Khusus Approval -->
   <section class="supervisor-kpi-grid">
     <button
       type="button"
@@ -145,7 +151,7 @@ const printOne = (report: ActivityReport): void => {
       :class="{ 'is-selected': activeTab === 'Submitted' }"
       @click="activeTab = 'Submitted'"
     >
-      <span class="kpi-label">Menunggu Approval Supervisor</span>
+      <span class="kpi-label">Menunggu Approval {{ userJobTitle }}</span>
       <strong class="kpi-value">{{ counts.submitted }}</strong>
       <small>Sudah di-submit technician</small>
     </button>
@@ -169,7 +175,7 @@ const printOne = (report: ActivityReport): void => {
     >
       <span class="kpi-label">Sudah Di-Approve</span>
       <strong class="kpi-value">{{ counts.reviewed }}</strong>
-      <small>Acknowledged by Supervisor</small>
+      <small>Acknowledged by {{ userJobTitle }}</small>
     </button>
 
     <button
@@ -189,7 +195,7 @@ const printOne = (report: ActivityReport): void => {
     <template v-if="selected">
       <div class="panel-header">
         <div>
-          <p class="panel-kicker">Lembar Pemeriksaan Supervisor</p>
+          <p class="panel-kicker">Lembar Pemeriksaan {{ userJobTitle }}</p>
           <h2>Review Laporan Kerja Technician — {{ formatActivityDate(selected.date) }}</h2>
         </div>
         <div class="inline-actions">
@@ -198,7 +204,7 @@ const printOne = (report: ActivityReport): void => {
         </div>
       </div>
 
-      <!-- Kotak Keputusan Supervisor di bagian atas agar langsung terlihat -->
+      <!-- Kotak Keputusan Approval di bagian atas agar langsung terlihat -->
       <div class="supervisor-decision-banner" :class="statusClass(selected.status)">
         <div class="decision-info">
           <span class="decision-kicker">Status Saat Ini: {{ statusLabel(selected.status) }}</span>
@@ -216,11 +222,11 @@ const printOne = (report: ActivityReport): void => {
         <div class="decision-controls">
           <template v-if="selected.status === 'Submitted'">
             <label class="supervisor-name-field">
-              <span>Nama Supervisor (Acknowledged by)</span>
+              <span>Nama {{ userJobTitle }} (Acknowledged by)</span>
               <input
                 v-model="supervisorNameInput"
                 type="text"
-                placeholder="Nama Supervisor"
+                :placeholder="`Nama ${userJobTitle}`"
               />
             </label>
             <button type="button" class="primary-button" @click="approveReport(selected, supervisorNameInput)">
@@ -302,7 +308,7 @@ const printOne = (report: ActivityReport): void => {
             <div><label>Time</label><strong>{{ selected.handover.takeoverTime || '—' }}</strong></div>
             <div class="acknowledged-field">
               <label>Acknowledged by :</label>
-              <strong>{{ selected.handover.acknowledgedBy || 'Menunggu Approval Supervisor' }}</strong>
+              <strong>{{ selected.handover.acknowledgedBy || `Menunggu Approval ${userJobTitle}` }}</strong>
             </div>
           </div>
         </div>
@@ -313,7 +319,7 @@ const printOne = (report: ActivityReport): void => {
     <template v-else>
       <div class="panel-header">
         <div>
-          <p class="panel-kicker">Modul Khusus Supervisor</p>
+          <p class="panel-kicker">Modul Khusus {{ userJobTitle }}</p>
           <h2>Monitoring &amp; Approval Laporan Kerja Technician</h2>
         </div>
         <div class="inline-actions">
@@ -354,8 +360,8 @@ const printOne = (report: ActivityReport): void => {
             </select>
           </label>
           <label class="field-wrap compact-field">
-            <span>Nama Supervisor (Approve Cepat)</span>
-            <input v-model="supervisorNameInput" type="text" placeholder="Nama Supervisor" />
+            <span>Nama {{ userJobTitle }} (Approve Cepat)</span>
+            <input v-model="supervisorNameInput" type="text" :placeholder="`Nama ${userJobTitle}`" />
           </label>
         </div>
       </div>
@@ -374,7 +380,7 @@ const printOne = (report: ActivityReport): void => {
               <th>Ringkasan Pekerjaan Technician</th>
               <th>Status Progres</th>
               <th>Acknowledged by :</th>
-              <th>Aksi Approval Supervisor</th>
+              <th>Aksi Approval</th>
             </tr>
           </thead>
           <tbody>

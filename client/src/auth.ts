@@ -29,14 +29,21 @@ export const auth = {
     state.user = result.user;
   },
 
-  logout(): void {
+  async logout(silent = false): Promise<void> {
+    if (!silent && getToken()) {
+      try {
+        await api('POST', '/auth/logout');
+      } catch {
+        // Abaikan jika token sudah kadaluarsa
+      }
+    }
     setToken(null);
     state.user = null;
   },
 };
 
 setUnauthorizedHandler(() => {
-  auth.logout();
+  void auth.logout(true);
   window.location.hash = '#/login';
 });
 

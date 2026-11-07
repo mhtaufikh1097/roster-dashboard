@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { PoolClient } from 'pg';
 import { pool, withTransaction } from '../db.js';
 import { authenticate, requireRole, type AuthUser } from '../auth.js';
+import { recordAuditLog } from '../auditLog.js';
 
 const SHIFTS = ['Pagi', 'Siang', 'Office Hour', 'Libur'];
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
@@ -38,16 +39,19 @@ const normalizeIds = (list?: number[], single?: number | null): number[] => {
   return [...seen];
 };
 
-const formatSupervisorDisplay = (rawName: string): string => {
-  const clean = rawName.trim();
+const formatSupervisorDisplay = (rawName: string, rawPosition?: string | null): string => {
+  const clean = rawName.replace(/\s*\(supervisor\)$/i, '').trim();
   if (!clean) return '';
-  if (/\(supervisor\)$/i.test(clean)) return clean;
-  return `${clean} (Supervisor)`;
+  const pos = (rawPosition?.trim() && rawPosition.trim().toLowerCase() !== 'supervisor')
+    ? rawPosition.trim()
+    : 'IT Engineer';
+  if (/\([^)]+\)$/.test(clean)) return clean;
+  return `${clean} (${pos})`;
 };
 
 const REPORT_SELECT = `
   SELECT r.*, dp.name AS duty_name, hp.name AS handover_name, tp.name AS takeover_name,
-         au.full_name AS ack_full_name, au.username AS ack_username,
+         au.full_name AS ack_full_name, au.username AS ack_username, au.position AS ack_position,
          ap.name AS ack_personnel_name
   FROM activity_reports r
   JOIN personnel dp ON dp.id = r.duty_personnel_id
@@ -126,8 +130,8 @@ const loadReports = async (where: string, params: unknown[]) => {
         handoverMatters: r.handover_matters as string,
         handoverTime: r.handover_time as string,
         takeoverTime: r.takeover_time as string,
-        // Diisi oleh supervisor setelah laporan di-submit technician, ditampilkan sebagai "Nama (Supervisor)".
-        acknowledgedBy: rawAckName ? formatSupervisorDisplay(rawAckName) : '',
+        // Diisi oleh IT Engineer / Pejabat berwenang setelah laporan di-submit technician, ditampilkan sebagai "Nama (Jabatan)".
+        acknowledgedBy: rawAckName ? formatSupervisorDisplay(rawAckName, r.ack_position as string | null) : '',
         acknowledgedAt: r.acknowledged_at as string | null,
       },
     };
@@ -176,18 +180,20 @@ const canEdit = (
   report: { status: string; createdBy: number | null; dutyPersonnelIds: number[] },
 ): boolean => user.role === 'admin' || (report.status === 'Draft' && isReportParticipant(user, report));
 
-const resolveSupervisorName = async (userId: number, customName?: string): Promise<string> => {
-  if (customName?.trim()) return customName.trim();
-  const { rows } = await pool.query<{ full_name: string; username: string; personnel_name: string | null }>(
-    `SELECT u.full_name, u.username, p.name AS personnel_name
+const resolveSupervisorInfo = async (userId: number, customName?: string): Promise<{ name: string; position: string }> => {
+  const { rows } = await pool.query<{ full_name: string; username: string; position: string; personnel_name: string | null }>(
+    `SELECT u.full_name, u.username, u.position, p.name AS personnel_name
      FROM users u
      LEFT JOIN personnel p ON p.id = u.personnel_id
      WHERE u.id = $1`,
     [userId],
   );
   const row = rows[0];
-  if (!row) return 'Supervisor';
-  return row.personnel_name?.trim() || row.full_name?.trim() || row.username;
+  const position = row?.position?.trim() && row.position.trim().toLowerCase() !== 'supervisor'
+    ? row.position.trim()
+    : 'IT Engineer';
+  const name = customName?.trim() || row?.personnel_name?.trim() || row?.full_name?.trim() || row?.username || 'IT Engineer';
+  return { name, position };
 };
 
 export const activityRoutes = async (app: FastifyInstance): Promise<void> => {
@@ -257,6 +263,12 @@ export const activityRoutes = async (app: FastifyInstance): Promise<void> => {
       await writeChildren(client, rows[0].id, body);
       return rows[0].id;
     });
+    await recordAuditLog({
+      user: request.user,
+      action: 'EDIT',
+      module: 'Daily Activity',
+      description: `Membuat laporan aktifitas harian tanggal ${body.date} (Shift ${body.shift}, status: ${initialStatus})`,
+    });
     return reply.code(201).send({ id, status: initialStatus });
   });
 
@@ -306,6 +318,12 @@ export const activityRoutes = async (app: FastifyInstance): Promise<void> => {
         );
         await writeChildren(client, request.params.id, body);
       });
+      await recordAuditLog({
+        user: request.user,
+        action: 'EDIT',
+        module: 'Daily Activity',
+        description: `Mengedit laporan aktifitas harian tanggal ${body.date} (Shift ${body.shift}, status: ${nextStatus})`,
+      });
       return { ok: true, status: nextStatus };
     },
   );
@@ -326,6 +344,12 @@ export const activityRoutes = async (app: FastifyInstance): Promise<void> => {
       await pool.query("UPDATE activity_reports SET status = 'Submitted', updated_at = now() WHERE id = $1", [
         request.params.id,
       ]);
+      await recordAuditLog({
+        user: request.user,
+        action: 'EDIT',
+        module: 'Daily Activity',
+        description: `Submit laporan aktifitas harian tanggal ${report.date} (Shift ${report.shift} — ${report.personOnDuty})`,
+      });
       return { ok: true, status: 'Submitted' };
     },
   );
@@ -339,17 +363,26 @@ export const activityRoutes = async (app: FastifyInstance): Promise<void> => {
       if (!report) return reply.code(404).send({ message: 'Laporan tidak ditemukan.' });
       if (report.status !== 'Submitted') {
         return reply.code(409).send({
-          message: 'Hanya laporan yang sudah di-submit oleh technician yang dapat di-acknowledge supervisor.',
+          message: 'Hanya laporan yang sudah di-submit oleh technician yang dapat di-acknowledge.',
         });
       }
-      const supervisorName = await resolveSupervisorName(request.user.id, request.body?.acknowledgedByName);
+      const { name: supervisorName, position: supervisorPosition } = await resolveSupervisorInfo(
+        request.user.id,
+        request.body?.acknowledgedByName,
+      );
       await pool.query(
         `UPDATE activity_reports
          SET status = 'Reviewed', acknowledged_by = $2, acknowledged_by_name = $3, acknowledged_at = now(), updated_at = now()
          WHERE id = $1`,
         [request.params.id, request.user.id, supervisorName],
       );
-      return { ok: true, status: 'Reviewed', acknowledgedBy: formatSupervisorDisplay(supervisorName) };
+      await recordAuditLog({
+        user: request.user,
+        action: 'EDIT',
+        module: 'Daily Activity',
+        description: `Approve / Acknowledge laporan aktifitas harian tanggal ${report.date} (Shift ${report.shift} — ${report.personOnDuty})`,
+      });
+      return { ok: true, status: 'Reviewed', acknowledgedBy: formatSupervisorDisplay(supervisorName, supervisorPosition) };
     },
   );
 
@@ -365,6 +398,12 @@ export const activityRoutes = async (app: FastifyInstance): Promise<void> => {
       await pool.query("UPDATE activity_reports SET status = 'Closed', updated_at = now() WHERE id = $1", [
         request.params.id,
       ]);
+      await recordAuditLog({
+        user: request.user,
+        action: 'EDIT',
+        module: 'Daily Activity',
+        description: `Menutup (Close) laporan aktifitas harian tanggal ${report.date} (Shift ${report.shift})`,
+      });
       return { ok: true, status: 'Closed' };
     },
   );
@@ -384,12 +423,26 @@ export const activityRoutes = async (app: FastifyInstance): Promise<void> => {
          WHERE id = $1`,
         [request.params.id],
       );
+      await recordAuditLog({
+        user: request.user,
+        action: 'EDIT',
+        module: 'Daily Activity',
+        description: `Mengembalikan laporan aktifitas harian tanggal ${report.date} (Shift ${report.shift}) ke status Draft`,
+      });
       return { ok: true, status: 'Draft' };
     },
   );
 
   app.delete<{ Params: { id: string } }>('/api/activity/:id', { preHandler: requireRole('admin') }, async (request, reply) => {
+    const [report] = await loadReports('WHERE r.id = $1', [request.params.id]);
     const result = await pool.query('DELETE FROM activity_reports WHERE id = $1', [request.params.id]);
-    return result.rowCount ? { ok: true } : reply.code(404).send({ message: 'Laporan tidak ditemukan.' });
+    if (!result.rowCount) return reply.code(404).send({ message: 'Laporan tidak ditemukan.' });
+    await recordAuditLog({
+      user: request.user,
+      action: 'DELETE',
+      module: 'Daily Activity',
+      description: `Menghapus laporan aktifitas harian tanggal ${report?.date ?? request.params.id}${report ? ` (Shift ${report.shift} — ${report.personOnDuty})` : ''}`,
+    });
+    return { ok: true };
   });
 };

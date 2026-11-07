@@ -14,14 +14,15 @@ const search = ref('');
 const editingId = ref<number | null>(null);
 
 const roles: Array<{ value: Role; label: string }> = [
-  { value: 'user', label: 'Technician (User)' },
-  { value: 'supervisor', label: 'Supervisor' },
-  { value: 'admin', label: 'Admin' },
+  { value: 'user', label: 'IT Technician (Level User)' },
+  { value: 'supervisor', label: 'IT Engineer (Level Approval)' },
+  { value: 'admin', label: 'Administrator (Level Admin)' },
 ];
 
 const form = reactive({
   username: '',
   fullName: '',
+  position: 'IT Technician',
   password: '',
   role: 'user' as Role,
   personnelId: null as number | null,
@@ -30,6 +31,7 @@ const form = reactive({
 const editForm = reactive({
   username: '',
   fullName: '',
+  position: '',
   role: 'user' as Role,
   personnelId: null as number | null,
 });
@@ -75,7 +77,7 @@ const visibleUsers = computed(() => {
 const add = async (): Promise<void> => {
   try {
     await api('POST', '/users', { ...form });
-    Object.assign(form, { username: '', fullName: '', password: '', role: 'user', personnelId: null });
+    Object.assign(form, { username: '', fullName: '', position: 'IT Technician', password: '', role: 'user', personnelId: null });
     setNotice('Akun pengguna baru berhasil ditambahkan.', 'success');
     await load();
   } catch (e) {
@@ -87,6 +89,7 @@ const startEdit = (u: ManagedUser): void => {
   editingId.value = u.id;
   editForm.username = u.username;
   editForm.fullName = u.fullName;
+  editForm.position = u.position || roleBadgeText(u);
   editForm.role = u.role;
   editForm.personnelId = u.personnelId;
 };
@@ -96,6 +99,7 @@ const saveEdit = async (u: ManagedUser): Promise<void> => {
     await api('PUT', `/users/${u.id}`, {
       username: editForm.username,
       fullName: editForm.fullName,
+      position: editForm.position,
       role: editForm.role,
       personnelId: editForm.personnelId,
     });
@@ -135,10 +139,17 @@ const deleteUser = async (user: ManagedUser): Promise<void> => {
   }
 };
 
-const roleBadgeText = (role: Role): string => {
-  if (role === 'admin') return 'ADMIN';
-  if (role === 'supervisor') return 'SUPERVISOR';
-  return 'TECHNICIAN';
+const roleBadgeText = (u: ManagedUser): string => {
+  if (u.position?.trim() && u.position.trim().toLowerCase() !== 'supervisor') return u.position.trim();
+  if (u.role === 'admin') return 'Administrator';
+  if (u.role === 'supervisor') return 'IT Engineer';
+  return 'IT Technician';
+};
+
+const onRoleChange = (): void => {
+  if (form.role === 'supervisor') form.position = 'IT Engineer';
+  else if (form.role === 'admin') form.position = 'Administrator';
+  else form.position = 'IT Technician';
 };
 </script>
 
@@ -154,7 +165,7 @@ const roleBadgeText = (role: Role): string => {
       >
         <span class="kpi-label">Total Akun Aktif</span>
         <strong class="kpi-value">{{ stats.total }}</strong>
-        <small>Semua level pengguna aktif</small>
+        <small>Semua pengguna aktif</small>
       </button>
 
       <button
@@ -163,7 +174,7 @@ const roleBadgeText = (role: Role): string => {
         :class="{ 'is-selected': roleFilter === 'supervisor' }"
         @click="roleFilter = 'supervisor'"
       >
-        <span class="kpi-label">Level Supervisor</span>
+        <span class="kpi-label">Jabatan IT Engineer</span>
         <strong class="kpi-value">{{ stats.supervisors }}</strong>
         <small>Zigmahara, Muhammad Syaeful, dll.</small>
       </button>
@@ -174,7 +185,7 @@ const roleBadgeText = (role: Role): string => {
         :class="{ 'is-selected': roleFilter === 'user' }"
         @click="roleFilter = 'user'"
       >
-        <span class="kpi-label">Level Technician</span>
+        <span class="kpi-label">Jabatan IT Technician</span>
         <strong class="kpi-value">{{ stats.technicians }}</strong>
         <small>Sesuai personel roster</small>
       </button>
@@ -185,7 +196,7 @@ const roleBadgeText = (role: Role): string => {
         :class="{ 'is-selected': roleFilter === 'admin' }"
         @click="roleFilter = 'admin'"
       >
-        <span class="kpi-label">Level Admin</span>
+        <span class="kpi-label">Administrator</span>
         <strong class="kpi-value">{{ stats.admins }}</strong>
         <small>{{ stats.inactive }} akun nonaktif</small>
       </button>
@@ -193,7 +204,7 @@ const roleBadgeText = (role: Role): string => {
 
     <!-- Form Tambah Akun Pengguna Baru -->
     <div class="activity-card">
-      <h3>Tambah Akun Pengguna Baru (Technician / Supervisor / Admin)</h3>
+      <h3>Tambah Akun Pengguna Baru</h3>
       <form class="admin-inline-form" @submit.prevent="add">
         <label class="field-wrap compact-field">
           <span>Username Login</span>
@@ -208,15 +219,19 @@ const roleBadgeText = (role: Role): string => {
           <input v-model="form.password" type="password" minlength="6" autocomplete="new-password" placeholder="Min. 6 karakter" required />
         </label>
         <label class="field-wrap compact-field">
-          <span>Level / Role</span>
-          <select v-model="form.role">
+          <span>Level Akses</span>
+          <select v-model="form.role" @change="onRoleChange">
             <option v-for="r in roles" :key="r.value" :value="r.value">{{ r.label }}</option>
           </select>
         </label>
         <label class="field-wrap compact-field">
+          <span>Nama Jabatan</span>
+          <input v-model="form.position" type="text" placeholder="contoh: IT Engineer" required />
+        </label>
+        <label class="field-wrap compact-field">
           <span>Tautkan ke Personel Roster (Opsional)</span>
           <select v-model="form.personnelId">
-            <option :value="null">— Tidak ditautkan (Supervisor/Admin) —</option>
+            <option :value="null">— Tidak ditautkan —</option>
             <option v-for="p in personnel" :key="p.id" :value="p.id">{{ p.name }} ({{ p.position }})</option>
           </select>
         </label>
@@ -229,7 +244,7 @@ const roleBadgeText = (role: Role): string => {
       <div class="activity-card-header">
         <div>
           <h3>Daftar Akun Pengguna Sistem</h3>
-          <p class="field-hint">Admin memegang kendali penuh untuk mengubah nama, username, level role, password, dan status aktif seluruh user.</p>
+          <p class="field-hint">Admin memegang kendali penuh untuk mengubah nama, username, jabatan, level akses, password, dan status aktif seluruh user.</p>
         </div>
         <div class="inline-actions">
           <button
@@ -250,7 +265,7 @@ const roleBadgeText = (role: Role): string => {
             <tr>
               <th>Nama Lengkap</th>
               <th>Username Login</th>
-              <th>Level / Role</th>
+              <th>Nama Jabatan</th>
               <th>Tautan Personel Roster</th>
               <th>Status</th>
               <th>Kendali Admin</th>
@@ -262,9 +277,12 @@ const roleBadgeText = (role: Role): string => {
                 <td><input v-model="editForm.fullName" type="text" placeholder="Nama lengkap" /></td>
                 <td><input v-model="editForm.username" type="text" placeholder="Username" /></td>
                 <td>
-                  <select v-model="editForm.role" :disabled="u.id === auth.state.user?.id">
-                    <option v-for="r in roles" :key="r.value" :value="r.value">{{ r.label }}</option>
-                  </select>
+                  <div class="inline-actions">
+                    <input v-model="editForm.position" type="text" placeholder="Jabatan (mis. IT Engineer)" />
+                    <select v-model="editForm.role" :disabled="u.id === auth.state.user?.id">
+                      <option v-for="r in roles" :key="r.value" :value="r.value">{{ r.label }}</option>
+                    </select>
+                  </div>
                 </td>
                 <td>
                   <select v-model="editForm.personnelId">
@@ -285,7 +303,7 @@ const roleBadgeText = (role: Role): string => {
                 <td><strong>{{ u.fullName || u.username }}</strong></td>
                 <td><code>@{{ u.username }}</code></td>
                 <td>
-                  <span class="user-role-badge" :class="u.role">{{ roleBadgeText(u.role) }}</span>
+                  <span class="user-role-badge" :class="u.role">{{ roleBadgeText(u) }}</span>
                 </td>
                 <td>{{ u.personnelName || '—' }}</td>
                 <td>

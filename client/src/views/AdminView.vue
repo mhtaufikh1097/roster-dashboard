@@ -9,9 +9,10 @@ import { getMonthlySummary, getStatusClass } from '../utils/roster';
 import AdminUsers from '../components/AdminUsers.vue';
 import AdminPersonnel from '../components/AdminPersonnel.vue';
 import AdminRoster from '../components/AdminRoster.vue';
+import AdminAuditLogs from '../components/AdminAuditLogs.vue';
 import ActivityView from './ActivityView.vue';
 
-type Tab = 'overview' | 'users' | 'roster' | 'personnel' | 'reports';
+type Tab = 'overview' | 'users' | 'roster' | 'personnel' | 'reports' | 'logs';
 
 const route = useRoute();
 const router = useRouter();
@@ -21,7 +22,7 @@ watch(
   () => route.query.tab,
   (val) => {
     const next = (val as Tab) || 'overview';
-    if (['overview', 'users', 'roster', 'personnel', 'reports'].includes(next)) {
+    if (['overview', 'users', 'roster', 'personnel', 'reports', 'logs'].includes(next)) {
       tab.value = next;
     }
   },
@@ -35,6 +36,7 @@ const setTab = (next: Tab): void => {
 const tabs = [
   { key: 'overview' as Tab, label: 'Overview & Tabel Roster' },
   { key: 'users' as Tab, label: 'Dashboard Pengguna / User' },
+  { key: 'logs' as Tab, label: 'Log Aktivitas Pengguna' },
   { key: 'roster' as Tab, label: 'Kelola Roster (Manual / Excel)' },
   { key: 'personnel' as Tab, label: 'Master Data Personel' },
   { key: 'reports' as Tab, label: 'Kelola Laporan Activity' },
@@ -101,7 +103,7 @@ const rosterSummary = computed(() => (rosterStore.active ? getMonthlySummary(ros
           <button type="button" class="supervisor-kpi-card progress" @click="setTab('users')">
             <span class="kpi-label">Dashboard Pengguna / User</span>
             <strong class="kpi-value">{{ activeUsers.length }} Akun</strong>
-            <small>{{ supervisorList.length }} Supervisor • {{ techList.length }} Technician</small>
+            <small>{{ supervisorList.length }} IT Engineer • {{ techList.length }} Technician</small>
           </button>
 
           <button type="button" class="supervisor-kpi-card approved" @click="setTab('roster')">
@@ -127,14 +129,14 @@ const rosterSummary = computed(() => (rosterStore.active ? getMonthlySummary(ros
         <div class="admin-overview-columns">
           <div class="activity-card">
             <div class="activity-card-header">
-              <h3>Akun Supervisor Aktif</h3>
+              <h3>Akun IT Engineer (Approval) Aktif</h3>
               <button type="button" class="secondary-button compact-button" @click="setTab('users')">
                 Kelola User →
               </button>
             </div>
             <div class="multi-person-chips">
               <span v-for="s in supervisorList" :key="s.id" class="user-role-badge supervisor">
-                {{ s.fullName }} (@{{ s.username }})
+                {{ s.fullName }} • {{ s.position || 'IT Engineer' }} (@{{ s.username }})
               </span>
             </div>
           </div>
@@ -203,10 +205,19 @@ const rosterSummary = computed(() => (rosterStore.active ? getMonthlySummary(ros
             Belum ada roster aktif. Klik "Edit / Upload Jadwal Roster" untuk membuat atau mengunggah Excel.
           </div>
         </div>
+
+        <!-- Tabel Log Aktivitas Pengguna (Limit 5 Data Tampilan + Filter) -->
+        <AdminAuditLogs />
       </div>
 
       <!-- ================= TAB 2: DASHBOARD PENGGUNA / USER ================= -->
-      <AdminUsers v-else-if="tab === 'users'" />
+      <div v-else-if="tab === 'users'" class="admin-block">
+        <AdminUsers />
+        <AdminAuditLogs />
+      </div>
+
+      <!-- ================= TAB LOG AKTIVITAS PENGGUNA ================= -->
+      <AdminAuditLogs v-else-if="tab === 'logs'" />
 
       <!-- ================= TAB 3: KELOLA ROSTER ================= -->
       <AdminRoster v-else-if="tab === 'roster'" />
